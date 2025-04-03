@@ -10,8 +10,9 @@ try {
     session_start();
     
     $loginError = '';
-    $registerError = '';
-    $registerSuccess = false;
+    
+    // Check if there's a redirect parameter
+    $redirect = isset($_GET['redirect']) ? $_GET['redirect'] : 'index.php';
     
     // Handle login
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
@@ -27,52 +28,12 @@ try {
             $_SESSION['username'] = $user['username'];
             $_SESSION['avatar'] = $user['avatar'];
             $_SESSION['is_mod'] = $user['is_mod'];
-            header('Location: index.php');
+            
+            // Redirect to the appropriate page
+            header('Location: ' . $redirect);
             exit;
         } else {
             $loginError = "Invalid username or password";
-        }
-    }
-    
-    // Handle register
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'register') {
-        $username = $_POST['username'] ?? '';
-        $password = $_POST['password'] ?? '';
-        $email = $_POST['email'] ?? '';
-        
-        if (strlen($username) < 3) {
-            $registerError = "Username must be at least 3 characters";
-        } elseif (strlen($password) < 6) {
-            $registerError = "Password must be at least 6 characters";
-        } else {
-            // Check if username already exists
-            $stmt = $db->prepare("SELECT id FROM users WHERE username = ?");
-            $stmt->execute([$username]);
-            if ($stmt->fetch()) {
-                $registerError = "Username already taken";
-            } else {
-                // Check if email already exists
-                if (!empty($email)) {
-                    $stmt = $db->prepare("SELECT id FROM users WHERE email = ?");
-                    $stmt->execute([$email]);
-                    if ($stmt->fetch()) {
-                        $registerError = "Email already in use";
-                    }
-                }
-                
-                if (empty($registerError)) {
-                    // Generate random avatar number
-                    $avatarNum = rand(1, 5);
-                    $avatar = "avatar{$avatarNum}.svg";
-                    
-                    // Create user
-                    $stmt = $db->prepare("INSERT INTO users (username, password, email, avatar) VALUES (?, ?, ?, ?)");
-                    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-                    $stmt->execute([$username, $hashedPassword, $email, $avatar]);
-                    
-                    $registerSuccess = true;
-                }
-            }
         }
     }
     
@@ -86,15 +47,12 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login / Register - IP2∞</title>
+    <title>Login - IP2∞</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <style>
         .auth-container {
-            display: flex;
-            justify-content: space-between;
-            gap: 20px;
-            max-width: 900px;
+            max-width: 500px;
             margin: 0 auto;
         }
         
@@ -158,15 +116,6 @@ try {
             border-radius: 4px;
         }
         
-        .auth-success {
-            background-color: rgba(0, 128, 0, 0.1);
-            border: 1px solid #006400;
-            padding: 15px;
-            margin-bottom: 20px;
-            color: #00ff00;
-            border-radius: 4px;
-        }
-        
         .back-link {
             display: inline-block;
             margin-bottom: 20px;
@@ -184,10 +133,22 @@ try {
             font-size: 14px;
         }
         
-        @media (max-width: 768px) {
-            .auth-container {
-                flex-direction: column;
-            }
+        .register-button {
+            display: inline-block;
+            background-color: var(--background-color);
+            color: var(--accent-secondary);
+            border: 1px solid var(--accent-secondary);
+            padding: 10px 20px;
+            text-align: center;
+            margin-top: 15px;
+            border-radius: 4px;
+            width: 100%;
+            font-weight: bold;
+            text-decoration: none;
+        }
+        
+        .register-button:hover {
+            background-color: rgba(128, 0, 128, 0.1);
         }
     </style>
 </head>
@@ -251,58 +212,14 @@ try {
                             
                             <button type="submit" class="auth-button">Login</button>
                             
+                            <a href="register.php" class="register-button">Create New Account</a>
+                            
                             <div class="form-footer">
-                                <p>Don't have an account? Register on the right.</p>
                                 <p style="margin-top: 10px; font-size: 12px;">Demo accounts:<br>
                                 admin / admin123<br>
                                 404JesterNotFound / user123</p>
                             </div>
                         </form>
-                    </div>
-                    
-                    <!-- Register Form -->
-                    <div class="auth-box">
-                        <h2 class="auth-title">Join IP2∞</h2>
-                        
-                        <?php if ($registerError): ?>
-                            <div class="auth-error">
-                                <p><?php echo htmlspecialchars($registerError); ?></p>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <?php if ($registerSuccess): ?>
-                            <div class="auth-success">
-                                <h3>Registration Successful!</h3>
-                                <p>Your account has been created. You can now login with your credentials.</p>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <?php if (!$registerSuccess): ?>
-                            <form method="POST">
-                                <input type="hidden" name="action" value="register">
-                                
-                                <div class="form-group">
-                                    <label for="register-username">Username</label>
-                                    <input type="text" id="register-username" name="username" required>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="register-email">Email (optional)</label>
-                                    <input type="email" id="register-email" name="email">
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="register-password">Password</label>
-                                    <input type="password" id="register-password" name="password" required>
-                                </div>
-                                
-                                <button type="submit" class="auth-button">Create Account</button>
-                                
-                                <div class="form-footer">
-                                    <p>By creating an account, you agree to our Terms of Service and Privacy Policy.</p>
-                                </div>
-                            </form>
-                        <?php endif; ?>
                     </div>
                 </div>
             </main>
