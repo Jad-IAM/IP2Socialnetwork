@@ -1,0 +1,279 @@
+/* Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #dae0e6;
+    padding-bottom: 20px;
+}
+
+a {
+    color: #0079d3;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* Header Styles */
+header {
+    background-color: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 10px 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.header-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+header h1 {
+    color: #ff4500;
+    font-size: 24px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+}
+
+.username-form {
+    display: flex;
+    gap: 10px;
+}
+
+.username-form input[type="text"] {
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+/* Main Content */
+main {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 0 20px;
+}
+
+.content {
+    background-color: #ffffff;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+}
+
+/* Post Form */
+.post-form-container {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.post-form-container h2 {
+    margin-bottom: 15px;
+    color: #1a1a1b;
+    font-size: 18px;
+}
+
+.post-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.post-form input[type="text"],
+.post-form textarea {
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    width: 100%;
+}
+
+.post-form textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+button {
+    background-color: #ff4500;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+button:hover {
+    background-color: #e03d00;
+}
+
+/* Posts Container */
+.posts-container h2 {
+    margin-bottom: 15px;
+    color: #1a1a1b;
+    font-size: 18px;
+}
+
+.post {
+    display: flex;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.vote-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-right: 15px;
+    padding: 5px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    min-width: 40px;
+}
+
+.vote-button {
+    background: none;
+    border: none;
+    color: #878a8c;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 5px;
+}
+
+.vote-button:hover {
+    color: #ff4500;
+    background: none;
+}
+
+.vote-count {
+    font-weight: bold;
+    color: #1a1a1b;
+    margin: 5px 0;
+}
+
+.post-content {
+    flex-grow: 1;
+}
+
+.post-content h3 {
+    margin-bottom: 10px;
+    color: #1a1a1b;
+    font-size: 18px;
+}
+
+.post-content p {
+    margin-bottom: 10px;
+    color: #1a1a1b;
+    font-size: 14px;
+}
+
+.post-meta {
+    display: flex;
+    gap: 15px;
+    color: #787c7e;
+    font-size: 12px;
+    margin-bottom: 15px;
+}
+
+/* Reply Styles */
+.reply-form-container {
+    margin-top: 10px;
+    margin-bottom: 15px;
+}
+
+.reply-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.reply-form textarea {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    min-height: 80px;
+    resize: vertical;
+}
+
+.replies {
+    margin-top: 15px;
+}
+
+.reply {
+    display: flex;
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.reply-content {
+    flex-grow: 1;
+}
+
+/* Footer */
+footer {
+    text-align: center;
+    padding: 20px;
+    color: #787c7e;
+    font-size: 12px;
+}
+
+/* Empty state */
+.empty-state {
+    padding: 20px;
+    text-align: center;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    color: #787c7e;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .header-container {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+    }
+    
+    .username-form {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .post {
+        flex-direction: column;
+    }
+    
+    .vote-container {
+        flex-direction: row;
+        margin-bottom: 10px;
+        margin-right: 0;
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .vote-count {
+        margin: 0 10px;
+    }
+}
