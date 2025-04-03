@@ -391,6 +391,12 @@ try {
 <body>
     <div class="container">
         <header>
+            <div class="banner">
+                <picture>
+                    <source srcset="assets/images/banner.svg" type="image/svg+xml">
+                    <img src="assets/images/banner.png" alt="IP2 Network Banner" class="banner-image">
+                </picture>
+            </div>
             <div class="header-content">
                 <div class="site-branding">
                     <h1 class="site-title"><?php echo htmlspecialchars($forumTitle); ?></h1>
@@ -557,35 +563,46 @@ try {
                 </div>
                 
                 <!-- About Box -->
+                <!-- About Box -->
                 <div class="about-box">
                     <h2>About</h2>
-                    <p class="about-text">Welcome to the official home of IP2</p>
-                    <p class="about-subtitle">Continuing our legacy</p>
+                    <div class="about-header">
+                        <h3>Internet-Platform 2 Infinity (IP2∞)</h3>
+                        <p class="about-subtitle">Formerly Ice Poseidon 2</p>
+                    </div>
                     <hr>
                     
-                    <div class="legacy-list">
-                        <div class="legacy-item">
-                            <h3>RIP r/Ice_Poseidon2</h3>
-                            <p>19th September 2017 - 29th September 2019</p>
-                        </div>
-                        <div class="legacy-item">
-                            <h3>RIP IP2.Network</h3>
-                            <p>29th September 2019 - 17th August 2020</p>
-                        </div>
-                        <div class="legacy-item">
-                            <h3>RIP IP2Network.win</h3>
-                            <p>17th August 2020 - 25th August 2020</p>
-                        </div>
+                    <h4 class="section-title">Welcoming Newcomers</h4>
+                    <p class="about-text">This is a fresh start—new platform, new people, better community. Our community originally formed around the controversial live streamer Ice Poseidon, but evolved into a decentralized network of IRL streamers, pranksters, and content creators.</p>
+                    <p class="about-text">We've rebranded to Internet-Platform 2 Infinity (IP2∞), marking our new direction. After being banned from multiple platforms (Reddit, Saidit), and with IP2Always.win now a shell of its former self, we're here to rebuild and recapture what made us great.</p>
+                    
+                    <h4 class="section-title">Our Goals</h4>
+                    <ul class="goals-list">
+                        <li><span class="checkmark">✅</span> Bring back the witty, high-effort trolling that made this community legendary</li>
+                        <li><span class="checkmark">✅</span> Create a space for real discussions, not just mindless spam</li>
+                        <li><span class="checkmark">✅</span> Content is King. Community-voted streamer lists and content curation</li>
+                    </ul>
+                    
+                    <h4 class="section-title">Rules</h4>
+                    <ol class="rules-list">
+                        <li>No Doxxing</li>
+                        <li>No brigading other communities</li>
+                        <li>No spamming</li>
+                    </ol>
+                    
+                    <div class="notes-section">
+                        <h4 class="section-title">Notes</h4>
+                        <ul class="notes-list">
+                            <li>Shitposting is fine, but make it worth reading</li>
+                            <li>🗣 Freedom of speech is respected—but don't be an uneducated, brain-dead fool</li>
+                        </ul>
                     </div>
                     
-                    <hr>
-                    
-                    <div class="about-links">
-                        <p><a href="#">IP2 Official Logo</a></p>
-                        <p><a href="#">IP2Always.Win.com Watermark</a></p>
-                        <p><a href="#">IP2 Official Twitter</a></p>
-                        <p><a href="#">Meme Cutouts and Templates</a></p>
-                    </div>
+                    <h4 class="section-title">Moderators</h4>
+                    <ul class="mod-list">
+                        <li><strong>404JesterNotFound</strong> (Mastermind of the newly developed community)</li>
+                        <li><strong>RubyOnRails</strong> (Moderator)</li>
+                    </ul>
                 </div>
                 
                 <!-- Rules Box -->

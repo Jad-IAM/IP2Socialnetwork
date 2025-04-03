@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="1200" height="200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1200" height="200" fill="#1a1a1a"/>
+  
+  <!-- Purple/Pink gradient background -->
+  <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+    <stop offset="0%" stop-color="#6a0dad" />
+    <stop offset="100%" stop-color="#ff1493" />
+  </linearGradient>
+  <rect width="1200" height="200" fill="url(#gradient)" opacity="0.3"/>
+  
+  <!-- IP2 Logo/Text -->
+  <text x="50" y="120" font-family="Arial, sans-serif" font-size="80" font-weight="bold" fill="#ffffff">
+    IP2<tspan fill="#ff1493">∞</tspan>
+  </text>
+  
+  <!-- Tagline -->
+  <text x="450" y="120" font-family="Arial, sans-serif" font-size="40" font-weight="bold" fill="#6a0dad">
+    Internet-Platform 2 Infinity
+  </text>
+  
+  <!-- Graffiti-style decoration -->
+  <path d="M0,170 C 300,150 600,190 900,160 C 1000,150 1100,180 1200,170 L 1200,200 L 0,200 Z" fill="#2c2c2c"/>
+  
+  <!-- Abstract design elements representing Buzz/Pepe imagery -->
+  <circle cx="950" cy="80" r="70" fill="#4a4a4a" opacity="0.7"/>
+  <path d="M950,30 C 980,50 1000,90 980,130 C 960,150 930,140 920,110 C 910,80 930,40 950,30" fill="#3b9b3f" opacity="0.8"/>
+  
+  <!-- Network pattern -->
+  <g stroke="#8a2be2" stroke-width="1" opacity="0.5">
+    <line x1="100" y1="180" x2="300" y2="160"/>
+    <line x1="300" y1="160" x2="500" y2="170"/>
+    <line x1="500" y1="170" x2="700" y2="155"/>
+    <line x1="700" y1="155" x2="900" y2="175"/>
+    <line x1="900" y1="175" x2="1100" y2="165"/>
+  </g>
+</svg>
