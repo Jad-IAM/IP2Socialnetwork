@@ -143,3 +143,184 @@ rm storage/sqlite/forum.sqlite
 ```
 
 The system will recreate it on the next access.
+
+## Backblaze B2 CDN Integration
+
+To optimize bandwidth and resources, you can integrate with Backblaze B2 CDN for file storage:
+
+### 1. Set Up Backblaze B2
+
+1. Create a Backblaze account at [backblaze.com](https://www.backblaze.com/)
+2. Create a new B2 bucket for your media files
+3. Set the bucket to public
+4. Generate application keys for your bucket
+
+### 2. Configure PHP for Backblaze B2 Integration
+
+Add this code to your `config.php` file:
+
+```php
+<?php
+// Backblaze B2 Configuration
+define('B2_ENABLED', true); // Set to false to use local storage instead
+define('B2_BUCKET_NAME', 'your-bucket-name');
+define('B2_APPLICATION_KEY_ID', 'your-application-key-id');
+define('B2_APPLICATION_KEY', 'your-application-key');
+define('B2_BUCKET_URL', 'https://f002.backblazeb2.com/file/your-bucket-name/'); // Update with your bucket URL
+```
+
+### 3. B2 Upload Integration
+
+Create a file called `includes/b2_upload.php`:
+
+```php
+<?php
+/**
+ * Backblaze B2 Upload Helper
+ */
+function uploadToB2($localFilePath, $b2FileName) {
+    if (!defined('B2_ENABLED') || !B2_ENABLED) {
+        return false; // B2 integration not enabled
+    }
+    
+    // Prepare the authentication
+    $credentials = base64_encode(B2_APPLICATION_KEY_ID . ':' . B2_APPLICATION_KEY);
+    
+    // Get authorization token
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, 'https://api.backblazeb2.com/b2api/v2/b2_authorize_account');
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+        'Authorization: Basic ' . $credentials
+    ));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $response = curl_exec($ch);
+    
+    if (curl_errno($ch)) {
+        error_log('B2 Auth Error: ' . curl_error($ch));
+        curl_close($ch);
+        return false;
+    }
+    
+    curl_close($ch);
+    $authData = json_decode($response, true);
+    
+    if (!isset($authData['authorizationToken']) || !isset($authData['apiUrl'])) {
+        error_log('B2 Auth Error: Invalid response');
+        return false;
+    }
+    
+    // Get upload URL
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $authData['apiUrl'] . '/b2api/v2/b2_get_upload_url');
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+        'Authorization: ' . $authData['authorizationToken']
+    ));
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(array(
+        'bucketId' => B2_BUCKET_ID
+    )));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $response = curl_exec($ch);
+    
+    if (curl_errno($ch)) {
+        error_log('B2 Upload URL Error: ' . curl_error($ch));
+        curl_close($ch);
+        return false;
+    }
+    
+    curl_close($ch);
+    $uploadData = json_decode($response, true);
+    
+    if (!isset($uploadData['uploadUrl']) || !isset($uploadData['authorizationToken'])) {
+        error_log('B2 Upload URL Error: Invalid response');
+        return false;
+    }
+    
+    // Upload the file
+    $fileContent = file_get_contents($localFilePath);
+    $contentSha1 = sha1_file($localFilePath);
+    $contentType = mime_content_type($localFilePath);
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $uploadData['uploadUrl']);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+        'Authorization: ' . $uploadData['authorizationToken'],
+        'Content-Type: ' . $contentType,
+        'Content-Length: ' . filesize($localFilePath),
+        'X-Bz-File-Name: ' . urlencode($b2FileName),
+        'X-Bz-Content-Sha1: ' . $contentSha1
+    ));
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $fileContent);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $response = curl_exec($ch);
+    
+    if (curl_errno($ch)) {
+        error_log('B2 Upload Error: ' . curl_error($ch));
+        curl_close($ch);
+        return false;
+    }
+    
+    curl_close($ch);
+    $fileData = json_decode($response, true);
+    
+    if (!isset($fileData['fileId'])) {
+        error_log('B2 Upload Error: Invalid response');
+        return false;
+    }
+    
+    // Return the CDN URL for the file
+    return B2_BUCKET_URL . $b2FileName;
+}
+```
+
+### 4. Modify Upload Handling
+
+Update your upload handling code to use B2 when enabled. Example:
+
+```php
+// In upload.php, replace the existing file storage code
+if (move_uploaded_file($_FILES['files']['tmp_name'][$i], $targetPath)) {
+    // Generate URL (either local or B2)
+    $fileUrl = 'uploads/videos/' . $newFilename;
+    
+    // If B2 is enabled, try to upload to B2
+    if (defined('B2_ENABLED') && B2_ENABLED) {
+        require_once(__DIR__ . '/includes/b2_upload.php');
+        $b2Url = uploadToB2($targetPath, 'videos/' . $newFilename);
+        
+        if ($b2Url !== false) {
+            // Use B2 URL instead of local
+            $fileUrl = $b2Url;
+            
+            // Optionally delete the local file to save space
+            @unlink($targetPath);
+        }
+    }
+    
+    // Continue with database insertion using $fileUrl
+    // ...
+}
+```
+
+### 5. Bandwidth Optimization
+
+To prevent hotlinking and bandwidth abuse:
+
+1. Add this to your .htaccess file:
+
+```apache
+# Prevent hotlinking
+<IfModule mod_rewrite.c>
+    RewriteEngine on
+    RewriteCond %{HTTP_REFERER} !^$
+    RewriteCond %{HTTP_REFERER} !^https?://(.+\.)?yourdomain\.com/ [NC]
+    RewriteRule \.(jpe?g|png|gif|mp4|webm)$ - [NC,F,L]
+</IfModule>
+```
+
+2. For Backblaze B2, set up a Cloudflare CDN in front of your B2 bucket:
+   - Sign up for a free Cloudflare account
+   - Add your domain
+   - Create a CNAME record for a subdomain (e.g., cdn.yourdomain.com) pointing to your B2 bucket URL
+   - Use Cloudflare's Hotlink Protection feature

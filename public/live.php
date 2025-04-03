@@ -586,7 +586,6 @@ try {
                 
                 <div class="live-banner">
                     <div class="live-text">LIVE <span class="live-dot"></span></div>
-                </div>
                 
                 <div class="streamers-container">
                     <div class="streamers-header">
@@ -824,12 +823,11 @@ try {
                 <!-- Sidebar buttons -->
                 <div class="sidebar-buttons">
                     <div class="button-row">
-                        <a href="live.php" class="sidebar-button live-button active"><span class="live-icon">⚫</span> LIVE</a>
+                        <a href="live.php" class="sidebar-button live-button active"><span class="live-icon"></span>LIVE</a>
                         <a href="#" class="sidebar-button leaderboard-button">LEADERBOARD</a>
                     </div>
                     <div class="button-row">
                         <a href="upload.php" class="sidebar-button upload-button">UPLOAD VIDEO</a>
-                        <a href="emotes.php" class="sidebar-button">EMOTES</a>
                     </div>
                 </div>
                 
