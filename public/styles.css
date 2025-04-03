@@ -1,0 +1,165 @@
+body {
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #f5f5f5;
+}
+
+h1, h2, h3 {
+    color: #444;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.post {
+    background: #fff;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    border-left: 5px solid #007bff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.post-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.post-title {
+    margin: 0;
+    font-size: 1.4em;
+}
+
+a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+.post-meta {
+    font-size: 0.85em;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.post-content {
+    margin-bottom: 15px;
+}
+
+.comment {
+    background: #f8f9fa;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 3px;
+    border-left: 3px solid #28a745;
+}
+
+.comment-meta {
+    font-size: 0.8em;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+input[type="text"],
+input[type="password"],
+textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: inherit;
+}
+
+button, .button {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 3px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 1em;
+}
+
+button:hover, .button:hover {
+    background: #0069d9;
+}
+
+.login-form {
+    max-width: 400px;
+    margin: 0 auto;
+    background: white;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.error {
+    color: #dc3545;
+    margin-bottom: 10px;
+    padding: 8px;
+    background-color: #f8d7da;
+    border-radius: 3px;
+}
+
+.vote-buttons {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.vote-count {
+    font-weight: bold;
+}
+
+.upvote, .downvote {
+    text-decoration: none;
+    padding: 3px 8px;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.upvote {
+    background: #28a745;
+    color: white;
+}
+
+.downvote {
+    background: #dc3545;
+    color: white;
+}
+
+.upvoted {
+    background: #1e7e34;
+}
+
+.downvoted {
+    background: #bd2130;
+}
