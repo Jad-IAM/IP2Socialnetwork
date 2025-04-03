@@ -1,12 +1,7 @@
 <?php
 // Include database connection
 require_once(__DIR__ . '/includes/database.php');
-
-// Create uploads directory if it doesn't exist
-$uploadsDir = __DIR__ . '/uploads/videos';
-if (!is_dir($uploadsDir)) {
-    mkdir($uploadsDir, 0777, true);
-}
+require_once(__DIR__ . '/includes/functions.php');
 
 // Connect to SQLite database
 try {
@@ -15,138 +10,71 @@ try {
     // Simple session management
     session_start();
     
-    $uploadSuccess = false;
-    $uploadError = '';
-    $uploadedFiles = [];
+    // Check if user is logged in
+    if (!isset($_SESSION['user_id'])) {
+        header('Location: login.php?redirect=' . urlencode($_SERVER['REQUEST_URI']));
+        exit;
+    }
     
-    // Handle video upload
+    $uploadMessage = '';
+    $uploadError = '';
+    $videoFile = null;
+    
+    // Handle file upload
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'upload_video') {
-        $title = $_POST['title'] ?? '';
-        $description = $_POST['description'] ?? '';
-        
-        // Check if user is logged in
-        $userId = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
-        
-        // Handle files
-        if (isset($_FILES['files']) && !empty($_FILES['files']['name'][0])) {
-            // First check if the videos table exists, if not create it
-            $db->exec("
-                CREATE TABLE IF NOT EXISTS videos (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT NOT NULL,
-                    description TEXT,
-                    filename TEXT NOT NULL,
-                    original_filename TEXT NOT NULL,
-                    file_size INTEGER NOT NULL,
-                    file_type TEXT NOT NULL,
-                    url TEXT NOT NULL,
-                    user_id INTEGER,
-                    views INTEGER DEFAULT 0,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id)
-                );
-            ");
+        if (isset($_FILES['video']) && $_FILES['video']['error'] === UPLOAD_ERR_OK) {
+            // Check file type and size
+            $allowedTypes = ['video/mp4', 'video/webm', 'video/ogg'];
+            $maxSize = 100 * 1024 * 1024; // 100MB
             
-            $filesCount = count($_FILES['files']['name']);
-            $maxFileSize = 100 * 1024 * 1024; // 100MB
-            $allowedTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-matroska', 'video/x-flv'];
+            $fileType = $_FILES['video']['type'];
+            $fileSize = $_FILES['video']['size'];
+            $fileName = $_FILES['video']['name'];
             
-            for ($i = 0; $i < $filesCount; $i++) {
-                // Check for upload errors
-                if ($_FILES['files']['error'][$i] !== UPLOAD_ERR_OK) {
-                    $errorMessages = [
-                        UPLOAD_ERR_INI_SIZE => 'The uploaded file exceeds the upload_max_filesize directive in php.ini',
-                        UPLOAD_ERR_FORM_SIZE => 'The uploaded file exceeds the MAX_FILE_SIZE directive in the HTML form',
-                        UPLOAD_ERR_PARTIAL => 'The uploaded file was only partially uploaded',
-                        UPLOAD_ERR_NO_FILE => 'No file was uploaded',
-                        UPLOAD_ERR_NO_TMP_DIR => 'Missing a temporary folder',
-                        UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
-                        UPLOAD_ERR_EXTENSION => 'A PHP extension stopped the file upload'
-                    ];
-                    $uploadError = 'Upload error: ' . ($errorMessages[$_FILES['files']['error'][$i]] ?? 'Unknown error');
-                    continue;
-                }
-                
-                // Check file size
-                if ($_FILES['files']['size'][$i] > $maxFileSize) {
-                    $uploadError = 'File is too large (max 100MB)';
-                    continue;
-                }
-                
-                // Check file type
-                $finfo = new finfo(FILEINFO_MIME_TYPE);
-                $fileType = $finfo->file($_FILES['files']['tmp_name'][$i]);
-                
-                if (!in_array($fileType, $allowedTypes)) {
-                    $uploadError = 'Invalid file type. Allowed types: mp4, webm, ogg, mov, mkv, flv';
-                    continue;
+            if (!in_array($fileType, $allowedTypes)) {
+                $uploadError = "Invalid file type. Only MP4, WebM, and OGG videos are allowed.";
+            } elseif ($fileSize > $maxSize) {
+                $uploadError = "File is too large. Maximum size is 100MB.";
+            } else {
+                // Create uploads directory if it doesn't exist
+                $uploadDir = __DIR__ . '/assets/uploads/videos';
+                if (!file_exists($uploadDir)) {
+                    mkdir($uploadDir, 0755, true);
                 }
                 
                 // Generate unique filename
-                $originalFilename = $_FILES['files']['name'][$i];
-                $extension = pathinfo($originalFilename, PATHINFO_EXTENSION);
-                $newFilename = uniqid('video_') . '_' . time() . '.' . $extension;
-                $targetPath = $uploadsDir . '/' . $newFilename;
+                $extension = pathinfo($fileName, PATHINFO_EXTENSION);
+                $newFileName = generateRandomFilename($fileName, $extension);
+                $targetPath = $uploadDir . '/' . $newFileName;
                 
                 // Move uploaded file
-                if (move_uploaded_file($_FILES['files']['tmp_name'][$i], $targetPath)) {
-                    // Generate URL
-                    $fileUrl = 'uploads/videos/' . $newFilename;
+                if (move_uploaded_file($_FILES['video']['tmp_name'], $targetPath)) {
+                    $videoUrl = 'assets/uploads/videos/' . $newFileName;
                     
-                    // Store in database
-                    $stmt = $db->prepare("
-                        INSERT INTO videos (title, description, filename, original_filename, file_size, file_type, url, user_id) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ");
+                    // Handle optional title and description
+                    $title = isset($_POST['title']) ? sanitizeString($_POST['title'], 100) : '';
+                    $description = isset($_POST['description']) ? sanitizeString($_POST['description'], 1000) : '';
                     
-                    $fileTitle = !empty($title) ? $title : pathinfo($originalFilename, PATHINFO_FILENAME);
-                    $stmt->execute([
-                        $fileTitle,
-                        $description,
-                        $newFilename,
-                        $originalFilename,
-                        $_FILES['files']['size'][$i],
-                        $fileType,
-                        $fileUrl,
-                        $userId
-                    ]);
+                    // Insert into database
+                    $stmt = $db->prepare("INSERT INTO posts (user_id, title, content, video_url, flair) VALUES (?, ?, ?, ?, ?)");
+                    $stmt->execute([$_SESSION['user_id'], $title, $description, $videoUrl, 'Video']);
                     
-                    $videoId = $db->lastInsertId();
+                    $uploadMessage = "Video uploaded successfully!";
+                    $redirectUrl = "index.php?status=uploaded";
                     
-                    // Add to uploaded files array
-                    $uploadedFiles[] = [
-                        'id' => $videoId,
-                        'name' => $originalFilename,
-                        'size' => $_FILES['files']['size'][$i],
-                        'url' => $fileUrl,
-                        'embed_code' => '<video width="640" height="360" controls><source src="' . $fileUrl . '" type="' . $fileType . '"></video>'
-                    ];
-                    
-                    $uploadSuccess = true;
+                    // Redirect after short delay
+                    header("refresh:2;url=$redirectUrl");
                 } else {
-                    $uploadError = 'Failed to move uploaded file';
+                    $uploadError = "Failed to upload file. Please try again.";
                 }
             }
         } else {
-            $uploadError = 'No files were uploaded';
+            $uploadError = "No file selected or upload error occurred.";
         }
     }
     
 } catch (PDOException $e) {
-    die('Database connection failed: ' . $e->getMessage());
-}
-
-// Format file size
-function formatFileSize($bytes) {
-    if ($bytes >= 1073741824) {
-        return number_format($bytes / 1073741824, 2) . ' GB';
-    } elseif ($bytes >= 1048576) {
-        return number_format($bytes / 1048576, 2) . ' MB';
-    } elseif ($bytes >= 1024) {
-        return number_format($bytes / 1024, 2) . ' KB';
-    } else {
-        return $bytes . ' bytes';
-    }
+    die('Database error: ' . $e->getMessage());
 }
 ?>
 
@@ -159,216 +87,28 @@ function formatFileSize($bytes) {
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <style>
-        .pomf-container {
-            max-width: 800px;
-            margin: 20px auto;
-            padding: 20px;
-            background-color: var(--content-bg);
-            border-radius: 4px;
-            border: 1px solid var(--border-color);
-        }
-        
-        .pomf-title {
-            text-align: center;
-            color: var(--accent-secondary);
-            margin-bottom: 25px;
-            font-size: 28px;
-        }
-        
-        .pomf-description {
-            text-align: center;
-            margin-bottom: 25px;
-            color: var(--text-secondary);
-        }
-        
-        .pomf-upload-zone {
-            background-color: var(--background-color);
-            border: 2px dashed var(--accent-secondary);
-            padding: 40px;
-            text-align: center;
-            cursor: pointer;
-            margin-bottom: 20px;
-            border-radius: 4px;
-            transition: background-color 0.3s ease;
-        }
-        
-        .pomf-upload-zone:hover {
-            background-color: rgba(138, 43, 226, 0.1);
-        }
-        
-        .pomf-icon {
-            font-size: 48px;
-            color: var(--accent-secondary);
-            margin-bottom: 15px;
-        }
-        
-        .pomf-text {
-            color: var(--text-primary);
-            font-size: 18px;
-            margin-bottom: 10px;
-        }
-        
-        .pomf-subtext {
-            color: var(--text-secondary);
-            font-size: 14px;
-        }
-        
-        .pomf-form {
+        .progress-container {
             margin-top: 20px;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            color: var(--text-primary);
-            font-weight: bold;
-        }
-        
-        .form-group input, .form-group textarea {
-            width: 100%;
-            padding: 10px;
-            background-color: var(--background-color);
-            border: 1px solid var(--border-color);
-            color: var(--text-primary);
-            border-radius: 4px;
-        }
-        
-        .form-group textarea {
-            min-height: 100px;
-            resize: vertical;
-        }
-        
-        .submit-button {
-            background-color: var(--accent-secondary);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            cursor: pointer;
-            font-weight: bold;
-            border-radius: 4px;
-            width: 100%;
-        }
-        
-        .submit-button:hover {
-            opacity: 0.9;
-        }
-        
-        .upload-success {
-            background-color: rgba(0, 128, 0, 0.1);
-            border: 1px solid #006400;
-            padding: 15px;
-            margin-bottom: 20px;
-            color: #00ff00;
-            border-radius: 4px;
-        }
-        
-        .upload-error {
-            background-color: rgba(255, 0, 0, 0.1);
-            border: 1px solid #8b0000;
-            padding: 15px;
-            margin-bottom: 20px;
-            color: #ff6666;
-            border-radius: 4px;
-        }
-        
-        .file-list {
-            margin-top: 15px;
-        }
-        
-        .file-item {
-            background-color: var(--background-color);
-            padding: 15px;
-            margin-bottom: 10px;
-            border-radius: 4px;
-            border: 1px solid var(--border-color);
-        }
-        
-        .file-item h3 {
-            margin-top: 0;
-            color: var(--post-title);
-        }
-        
-        .file-meta {
-            margin: 10px 0;
-            color: var(--text-secondary);
-            font-size: 14px;
-        }
-        
-        .file-urls {
-            margin-top: 15px;
-            background-color: #000;
-            padding: 10px;
-            border-radius: 4px;
-            font-family: monospace;
-            word-break: break-all;
-        }
-        
-        .file-url {
-            display: block;
-            margin-bottom: 5px;
-            color: var(--accent-secondary);
-        }
-        
-        .file-url strong {
-            color: var(--text-primary);
-            margin-right: 5px;
-        }
-        
-        .pomf-footer {
-            margin-top: 30px;
-            padding-top: 15px;
-            border-top: 1px solid var(--border-color);
-            text-align: center;
-            color: var(--text-secondary);
-            font-size: 12px;
-        }
-        
-        .back-link {
-            display: inline-block;
-            margin-bottom: 20px;
-            color: var(--accent-secondary);
-        }
-        
-        #file-input {
             display: none;
         }
         
-        .file-actions {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 15px;
-        }
-        
-        .file-action-button {
+        #upload-progress {
+            width: 100%;
+            height: 25px;
+            border-radius: 4px;
+            overflow: hidden;
             background-color: var(--background-color);
             border: 1px solid var(--border-color);
-            color: var(--text-primary);
-            padding: 8px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
         }
         
-        .file-action-button:hover {
-            background-color: var(--hover-bg);
-        }
-        
-        .file-action-primary {
+        #progress-bar {
+            height: 100%;
             background-color: var(--accent-secondary);
-            color: white;
-        }
-        
-        .thumbnail-preview {
-            width: 100%;
-            max-height: 200px;
-            object-fit: contain;
-            margin-top: 10px;
-            border-radius: 4px;
-            background-color: #000;
+            width: 0%;
+            transition: width 0.3s;
+            text-align: center;
+            line-height: 25px;
+            color: #fff;
         }
     </style>
 </head>
@@ -376,13 +116,13 @@ function formatFileSize($bytes) {
     <div class="container">
         <!-- Banner image behind header -->
         <div class="banner">
-            <img src="assets/images/banner.png" alt="IP2 Network Banner" class="banner-image">
+            <img src="assets/images/buzz_banner.png" alt="IP2 Network Banner" class="banner-image">
         </div>
         
         <!-- Subreddit-style header -->
         <header class="subreddit-header">
             <div class="subreddit-title">
-                <h1>IP2∞Social.network</h1>
+                <h1>IP2∞ (IP2.Social) (IP2Infinity.Social)</h1>
             </div>
             
             <nav class="subreddit-nav">
@@ -393,17 +133,13 @@ function formatFileSize($bytes) {
                 </ul>
                 
                 <div class="nav-actions">
+                    <a href="#" class="favorite-button"><i class="far fa-star"></i></a>
+                    <div class="more-options">
+                        <button class="more-button"><i class="fas fa-ellipsis-h"></i></button>
+                    </div>
                     <?php if (isset($_SESSION['user_id'])): ?>
-                        <a href="#" class="favorite-button"><i class="fas fa-star"></i></a>
-                        <div class="more-options">
-                            <button class="more-button"><i class="fas fa-ellipsis-h"></i></button>
-                        </div>
                         <a href="profile.php" class="member-button"><?php echo htmlspecialchars($_SESSION['username']); ?></a>
                     <?php else: ?>
-                        <a href="#" class="favorite-button"><i class="far fa-star"></i></a>
-                        <div class="more-options">
-                            <button class="more-button"><i class="fas fa-ellipsis-h"></i></button>
-                        </div>
                         <a href="login.php" class="member-button">Login</a>
                     <?php endif; ?>
                 </div>
@@ -411,201 +147,201 @@ function formatFileSize($bytes) {
         </header>
 
         <div class="content-wrapper">
-            <main class="main-content">
+            <main class="main-content" style="max-width: 100%;">
                 <a href="index.php" class="back-link"><i class="fas fa-arrow-left"></i> Back to Home</a>
                 
-                <div class="pomf-container">
-                    <h1 class="pomf-title">IP2∞ Video Upload</h1>
-                    <p class="pomf-description">Upload videos and share them with the IP2 community</p>
+                <div class="upload-container">
+                    <h2 class="upload-title">Upload Video</h2>
                     
                     <?php if ($uploadError): ?>
-                        <div class="upload-error">
-                            <h3>Upload Error</h3>
+                        <div class="auth-error">
                             <p><?php echo htmlspecialchars($uploadError); ?></p>
                         </div>
                     <?php endif; ?>
                     
-                    <?php if ($uploadSuccess): ?>
-                        <div class="upload-success">
-                            <h3>Upload Successful!</h3>
-                            <p>Your files have been uploaded successfully.</p>
+                    <?php if ($uploadMessage): ?>
+                        <div class="auth-success">
+                            <p><?php echo htmlspecialchars($uploadMessage); ?></p>
+                            <p>Redirecting to homepage...</p>
                         </div>
-                        
-                        <div class="file-list">
-                            <?php foreach ($uploadedFiles as $file): ?>
-                                <div class="file-item">
-                                    <h3><?php echo htmlspecialchars($file['name']); ?></h3>
-                                    <div class="file-meta">
-                                        <span><i class="fas fa-file-video"></i> <?php echo formatFileSize($file['size']); ?></span>
-                                    </div>
-                                    
-                                    <div class="file-urls">
-                                        <div class="file-url"><strong>URL:</strong> <a href="<?php echo $file['url']; ?>" target="_blank"><?php echo htmlspecialchars($file['url']); ?></a></div>
-                                        <div class="file-url"><strong>Embed:</strong> <?php echo htmlspecialchars($file['embed_code']); ?></div>
-                                    </div>
-                                    
-                                    <div class="file-actions">
-                                        <a href="<?php echo $file['url']; ?>" download class="file-action-button"><i class="fas fa-download"></i> Download</a>
-                                        <a href="index.php?page=create_post&video_url=<?php echo urlencode($file['url']); ?>" class="file-action-button file-action-primary"><i class="fas fa-share"></i> Create Post</a>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php else: ?>
-                        <form method="POST" enctype="multipart/form-data" class="pomf-form">
-                            <input type="hidden" name="action" value="upload_video">
-                            
-                            <div class="pomf-upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
-                                <div class="pomf-icon">
-                                    <i class="fas fa-cloud-upload-alt"></i>
-                                </div>
-                                <div class="pomf-text">Drag & drop videos here or click to browse</div>
-                                <div class="pomf-subtext">Max file size: 100MB. Supported formats: MP4, WebM, MOV, MKV, FLV</div>
-                                <input type="file" id="file-input" name="files[]" accept="video/*" multiple>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="title">Title (Optional)</label>
-                                <input type="text" id="title" name="title" placeholder="Give your upload a title">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="description">Description (Optional)</label>
-                                <textarea id="description" name="description" placeholder="Add a description"></textarea>
-                            </div>
-                            
-                            <button type="submit" class="submit-button">Upload Files</button>
-                        </form>
                     <?php endif; ?>
                     
-                    <div class="pomf-footer">
-                        <p>Files uploaded to IP2∞ are subject to our <a href="#">Terms of Service</a>. Do not upload illegal content.</p>
-                    </div>
+                    <?php if (!$uploadMessage): ?>
+                        <div class="drop-area" id="drop-area">
+                            <div class="drop-icon">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                            </div>
+                            <div class="drop-message">Drag & drop video here</div>
+                            <div>or</div>
+                            <form id="file-form" class="upload-form" method="POST" enctype="multipart/form-data">
+                                <input type="hidden" name="action" value="upload_video">
+                                <input type="file" id="file-input" name="video" class="file-input" accept="video/*">
+                                <div class="progress-container" id="progress-container">
+                                    <div id="upload-progress">
+                                        <div id="progress-bar">0%</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="upload-preview" id="preview-container">
+                                    <video id="preview-video" controls></video>
+                                </div>
+                                
+                                <div class="form-group" style="margin-top: 20px;">
+                                    <label for="title">Title (optional)</label>
+                                    <input type="text" id="title" name="title" class="form-input">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="description">Description (optional)</label>
+                                    <textarea id="description" name="description" class="status-textarea" style="min-height: 80px;"></textarea>
+                                </div>
+                                
+                                <button type="submit" class="status-button" id="upload-button" disabled>Upload Video</button>
+                            </form>
+                        </div>
+                        
+                        <div class="file-info" id="file-info"></div>
+                    <?php endif; ?>
                 </div>
             </main>
-
-            <aside class="sidebar">
-                <!-- Sidebar buttons -->
-                <div class="sidebar-buttons">
-                    <div class="button-row">
-                        <a href="live.php" class="sidebar-button live-button"><span class="live-icon"></span>LIVE</a>
-                        <a href="#" class="sidebar-button leaderboard-button">LEADERBOARD</a>
-                    </div>
-                    <div class="button-row">
-                        <a href="upload.php" class="sidebar-button upload-button active">UPLOAD VIDEO</a>
-                    </div>
-                </div>
-                
-                <!-- About Box -->
-                <div class="about-box">
-                    <h2>File Sharing Rules</h2>
-                    
-                    <h4 class="section-title">Allowed Content</h4>
-                    <ul class="rules-list">
-                        <li>Stream clips/highlights</li>
-                        <li>Original content</li>
-                        <li>Memes and edits</li>
-                    </ul>
-                    
-                    <h4 class="section-title">Prohibited Content</h4>
-                    <ul class="rules-list">
-                        <li>Illegal material</li>
-                        <li>DMCA-protected full movies/shows</li>
-                        <li>Malware/viruses</li>
-                    </ul>
-                    
-                    <h4 class="section-title">File Limits</h4>
-                    <h4 class="section-title">Community Guidelines</h4>
-                    <p>Content uploaded here is strictly for community use only. Do not share or hotlink these files on external sites.</p>
-                    <p>Content may be served through our Backblaze B2 CDN for performance reasons.</p>
-                    <p>Maximum file size: 100MB per file</p>
-                    <p>Allowed types: MP4, WebM, MOV, MKV, FLV</p>
-                </div>
-            </aside>
         </div>
         
         <footer>
-            <p>© <?php echo date('Y'); ?> IP2∞Social.network</p>
+            <p>© <?php echo date('Y'); ?> IP2∞ (IP2.Social)</p>
         </footer>
     </div>
-
+    
     <script>
-        // Drag and drop functionality
-        const dropZone = document.getElementById('drop-zone');
-        const fileInput = document.getElementById('file-input');
-        
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, preventDefaults, false);
-        });
-        
-        function preventDefaults(e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropZone.addEventListener(eventName, highlight, false);
-        });
-        
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, unhighlight, false);
-        });
-        
-        function highlight() {
-            dropZone.style.backgroundColor = 'rgba(138, 43, 226, 0.1)';
-            dropZone.style.borderColor = 'var(--accent-primary)';
-        }
-        
-        function unhighlight() {
-            dropZone.style.backgroundColor = 'var(--background-color)';
-            dropZone.style.borderColor = 'var(--accent-secondary)';
-        }
-        
-        dropZone.addEventListener('drop', handleDrop, false);
-        
-        function handleDrop(e) {
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            fileInput.files = files;
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropArea = document.getElementById('drop-area');
+            const fileInput = document.getElementById('file-input');
+            const uploadButton = document.getElementById('upload-button');
+            const previewContainer = document.getElementById('preview-container');
+            const previewVideo = document.getElementById('preview-video');
+            const fileInfo = document.getElementById('file-info');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progress-bar');
+            const fileForm = document.getElementById('file-form');
             
-            // Show selected files
-            updateFileInfo();
-        }
-        
-        fileInput.addEventListener('change', updateFileInfo);
-        
-        function updateFileInfo() {
-            const files = fileInput.files;
-            let fileInfo = '';
+            // Prevent default drag behaviors
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
             
-            if (files.length > 0) {
-                fileInfo = `<div class="pomf-text">${files.length} file(s) selected</div>`;
-                for (let i = 0; i < files.length; i++) {
-                    const file = files[i];
-                    fileInfo += `<div class="pomf-subtext">${file.name} (${formatSize(file.size)})</div>`;
+            // Highlight drop area when item is dragged over it
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, unhighlight, false);
+            });
+            
+            // Handle dropped files
+            dropArea.addEventListener('drop', handleDrop, false);
+            
+            // Handle selected files through file input
+            fileInput.addEventListener('change', handleFiles, false);
+            
+            // Handle form submission
+            fileForm.addEventListener('submit', function(e) {
+                if (fileInput.files.length === 0) {
+                    e.preventDefault();
+                    alert('Please select a video file to upload.');
+                    return false;
                 }
                 
-                dropZone.innerHTML = `
-                    <div class="pomf-icon">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
-                    ${fileInfo}
-                    <div class="pomf-subtext">Click to change selection</div>
-                `;
+                // Display progress bar
+                progressContainer.style.display = 'block';
+                
+                // Disable submit button to prevent multiple submissions
+                uploadButton.disabled = true;
+                uploadButton.textContent = 'Uploading...';
+                
+                // Display upload progress
+                const xhr = new XMLHttpRequest();
+                const formData = new FormData(fileForm);
+                
+                xhr.upload.addEventListener('progress', function(e) {
+                    if (e.lengthComputable) {
+                        const percentComplete = Math.round((e.loaded / e.total) * 100);
+                        progressBar.style.width = percentComplete + '%';
+                        progressBar.textContent = percentComplete + '%';
+                    }
+                }, false);
+                
+                xhr.addEventListener('load', function() {
+                    if (xhr.status === 200) {
+                        progressBar.style.width = '100%';
+                        progressBar.textContent = 'Upload Complete!';
+                        window.location.href = 'index.php?status=uploaded';
+                    } else {
+                        alert('An error occurred during the upload. Please try again.');
+                        uploadButton.disabled = false;
+                        uploadButton.textContent = 'Upload Video';
+                    }
+                });
+                
+                xhr.addEventListener('error', function() {
+                    alert('An error occurred during the upload. Please try again.');
+                    uploadButton.disabled = false;
+                    uploadButton.textContent = 'Upload Video';
+                });
+                
+                xhr.open('POST', 'upload.php', true);
+                xhr.send(formData);
+                
+                // Prevent default form submission
+                e.preventDefault();
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
             }
-        }
-        
-        function formatSize(bytes) {
-            if (bytes >= 1073741824) {
-                return (bytes / 1073741824).toFixed(2) + ' GB';
-            } else if (bytes >= 1048576) {
-                return (bytes / 1048576).toFixed(2) + ' MB';
-            } else if (bytes >= 1024) {
-                return (bytes / 1024).toFixed(2) + ' KB';
-            } else {
-                return bytes + ' bytes';
+            
+            function highlight() {
+                dropArea.classList.add('highlight');
             }
-        }
+            
+            function unhighlight() {
+                dropArea.classList.remove('highlight');
+            }
+            
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                
+                handleFiles({target: {files: files}});
+            }
+            
+            function handleFiles(e) {
+                const files = e.target.files;
+                
+                if (files.length > 0) {
+                    const file = files[0];
+                    
+                    // Check if file is video
+                    if (!file.type.match('video.*')) {
+                        alert('Please select a video file.');
+                        return;
+                    }
+                    
+                    // Display file info
+                    const size = (file.size / (1024 * 1024)).toFixed(2);
+                    fileInfo.textContent = `File: ${file.name} (${size} MB)`;
+                    
+                    // Preview video
+                    const objectUrl = URL.createObjectURL(file);
+                    previewVideo.src = objectUrl;
+                    previewContainer.style.display = 'block';
+                    
+                    // Enable upload button
+                    uploadButton.disabled = false;
+                }
+            }
+        });
     </script>
 </body>
 </html>
