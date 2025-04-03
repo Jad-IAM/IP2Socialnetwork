@@ -1,12 +1,6 @@
 <?php
-// Database connection from index.php
-$dbFile = __DIR__ . '/../storage/sqlite/forum.sqlite';
-$dbDirectory = dirname($dbFile);
-
-// Make sure SQLite directory exists
-if (!is_dir($dbDirectory)) {
-    mkdir($dbDirectory, 0777, true);
-}
+// Include database connection
+require_once(__DIR__ . '/includes/database.php');
 
 // Create uploads directory if it doesn't exist
 $uploadsDir = __DIR__ . '/uploads/videos';
@@ -16,8 +10,7 @@ if (!is_dir($uploadsDir)) {
 
 // Connect to SQLite database
 try {
-    $db = new PDO('sqlite:' . $dbFile);
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $db = getDatabase();
     
     // Simple session management
     session_start();

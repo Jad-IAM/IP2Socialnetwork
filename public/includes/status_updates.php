@@ -1,11 +1,10 @@
 <?php
-// Database connection
-$dbFile = __DIR__ . '/../../storage/sqlite/forum.sqlite';
+// Include database connection
+require_once(__DIR__ . '/database.php');
 
 // Connect to SQLite database
 try {
-    $db = new PDO('sqlite:' . $dbFile);
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $db = getDatabase();
     
     // Create status_updates table if it doesn't exist
     $db->exec("

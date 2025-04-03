@@ -1,89 +1,18 @@
 <?php
 // IP2 Micro Forum - Single Topic Discussion Board
 require_once(__DIR__ . "/includes/functions.php");
-$dbFile = __DIR__ . '/../storage/sqlite/forum.sqlite';
-$dbDirectory = dirname($dbFile);
+require_once(__DIR__ . "/includes/database.php");
 
 // Set forum title and description
 $forumTitle = "IP2∞";
 $forumSubtitle = "(IP2Infinity.network)";
 
-// Make sure SQLite directory exists
-if (!is_dir($dbDirectory)) {
-    mkdir($dbDirectory, 0777, true);
-}
-
 // Connect to SQLite database
 try {
-    $db = new PDO('sqlite:' . $dbFile);
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $db = getDatabase();
     
-    // Create tables if they don't exist
-    $db->exec("
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            password TEXT NOT NULL,
-            email TEXT UNIQUE,
-            avatar TEXT,
-            is_mod INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        
-        CREATE TABLE IF NOT EXISTS posts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            content TEXT NOT NULL,
-            user_id INTEGER,
-            image_url TEXT,
-            video_url TEXT,
-            clip_id TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        );
-        
-        CREATE TABLE IF NOT EXISTS comments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            content TEXT NOT NULL,
-            post_id INTEGER,
-            user_id INTEGER,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (post_id) REFERENCES posts(id),
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        );
-        
-        CREATE TABLE IF NOT EXISTS votes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            post_id INTEGER,
-            user_id INTEGER,
-            vote INTEGER NOT NULL, -- 1 for upvote, -1 for downvote
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (post_id) REFERENCES posts(id),
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            UNIQUE(post_id, user_id)
-        );
-
-        CREATE TABLE IF NOT EXISTS tags (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS post_tags (
-            post_id INTEGER,
-            tag_id INTEGER,
-            FOREIGN KEY (post_id) REFERENCES posts(id),
-            FOREIGN KEY (tag_id) REFERENCES tags(id),
-            PRIMARY KEY (post_id, tag_id)
-        );
-        
-        CREATE TABLE IF NOT EXISTS emotes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            code TEXT NOT NULL UNIQUE,
-            image_url TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-    ");
+    // Initialize database schema
+    initializeDatabase($db);
     
     // Seed some initial data if tables are empty
     $stmt = $db->query("SELECT COUNT(*) FROM users");
