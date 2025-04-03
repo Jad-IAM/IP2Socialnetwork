@@ -1,61 +1,60 @@
 <?php
-// Display errors for debugging
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+require __DIR__ . '/../vendor/autoload.php';
 
-// Load autoloader from parent directory
-require __DIR__.'/../vendor/autoload.php';
-
-try {
-    // Load the Flarum site
-    $site = require __DIR__.'/../site.php';
-
-    // Create a new install app
-    $app = new \Flarum\Install\InstallServiceProvider();
-    $container = new \Illuminate\Container\Container();
-    $app->register($container);
-
-    // Set up configuration data
-    $data = [
-        'debug' => true,
-        'baseUrl' => 'https://' . getenv('REPL_SLUG') . '.' . getenv('REPL_OWNER') . '.repl.co',
-        'databaseConfig' => [
-            'driver' => 'pgsql',
-            'host' => getenv('PGHOST'),
-            'port' => getenv('PGPORT'),
-            'database' => getenv('PGDATABASE'),
-            'username' => getenv('PGUSER'),
-            'password' => getenv('PGPASSWORD'),
-            'charset' => 'utf8',
-            'prefix' => '',
-            'schema' => 'public',
-        ],
-        'adminUser' => [
-            'username' => 'admin',
-            'password' => 'password',
-            'email' => 'admin@example.com',
-        ],
-        'settings' => [
-            'forum_title' => 'Flarum Discussion Forum',
-        ],
-    ];
-
-    // Perform the installation
-    $prerequisites = $container->make(\Flarum\Install\Prerequisite\PrerequisiteInterface::class);
-    $prerequisites->check();
-
-    $installer = $container->make(\Flarum\Install\Installation::class);
-    $installer->install($data);
-
-    echo "Flarum has been successfully installed.";
-    echo "<p>You can now <a href='/'>visit your forum</a>.</p>";
-
-} catch (Exception $e) {
-    echo "<h1>Installation Error</h1>";
-    echo "<p><strong>Message:</strong> " . $e->getMessage() . "</p>";
-    echo "<p><strong>File:</strong> " . $e->getFile() . "</p>";
-    echo "<p><strong>Line:</strong> " . $e->getLine() . "</p>";
-    echo "<h2>Stack Trace:</h2>";
-    echo "<pre>" . $e->getTraceAsString() . "</pre>";
+// Create SQLite database directory if it doesn't exist
+$dbDirectory = __DIR__ . '/../storage/sqlite';
+if (!is_dir($dbDirectory)) {
+    mkdir($dbDirectory, 0755, true);
 }
+
+// Create empty SQLite file if it doesn't exist
+$dbFile = $dbDirectory . '/flarum.sqlite';
+if (!file_exists($dbFile)) {
+    touch($dbFile);
+    chmod($dbFile, 0666);
+}
+
+// Set up the Flarum installation
+$config = require __DIR__ . '/../config.php';
+$sitePath = __DIR__ . '/..';
+
+// Get the base URL
+$baseUrl = $config['url'];
+
+// Admin user details
+$adminUser = 'admin';
+$adminEmail = 'admin@example.com';
+$adminPassword = 'admin123';
+
+// Forum details
+$forumTitle = 'My Forum';
+
+// Create the Flarum installer command
+$command = "cd $sitePath && php flarum install --file=\"$sitePath/config.php\" ";
+$command .= "--admin-username=\"$adminUser\" ";
+$command .= "--admin-email=\"$adminEmail\" ";
+$command .= "--admin-password=\"$adminPassword\" ";
+$command .= "--title=\"$forumTitle\"";
+
+echo "<h1>Setting up Flarum with SQLite</h1>";
+echo "<pre>";
+
+// Execute the command
+echo "Executing: " . $command . "\n\n";
+$output = [];
+$returnVar = 0;
+exec($command, $output, $returnVar);
+
+foreach ($output as $line) {
+    echo htmlspecialchars($line) . "\n";
+}
+
+if ($returnVar === 0) {
+    echo "\n\nFlarum has been successfully installed!";
+    echo "\n\n<a href='/'>Go to your forum</a>";
+} else {
+    echo "\n\nThere was an error installing Flarum. Please check the output above.";
+}
+
+echo "</pre>";
+?>
