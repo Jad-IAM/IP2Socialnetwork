@@ -1,144 +1,187 @@
 <?php
 /**
- * Database connection helper
- * Provides centralized connection to SQLite database with improved locking handling
+ * Database connection handler for IP2∞ forum
  */
 
 /**
- * Get a database connection with proper configuration for SQLite
+ * Get database connection
  * 
- * @return PDO Database connection
+ * @return PDO Database connection object
  */
 function getDatabase() {
-    $dbFile = __DIR__ . '/../../storage/sqlite/forum.sqlite';
-    $dbDirectory = dirname($dbFile);
+    static $db = null;
     
-    // Make sure SQLite directory exists
-    if (!is_dir($dbDirectory)) {
-        mkdir($dbDirectory, 0777, true);
+    if ($db === null) {
+        try {
+            // Database file path
+            $dbPath = __DIR__ . '/../db/forum.db';
+            $dbDir = dirname($dbPath);
+            
+            // Create database directory if it doesn't exist
+            if (!file_exists($dbDir)) {
+                mkdir($dbDir, 0755, true);
+            }
+            
+            // Connect to SQLite database
+            $db = new PDO('sqlite:' . $dbPath);
+            
+            // Set error mode
+            $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            
+            // Enable foreign keys
+            $db->exec('PRAGMA foreign_keys = ON');
+            
+            // Set busy timeout to avoid database is locked errors
+            $db->exec('PRAGMA busy_timeout = 30000');
+            
+            // Initialize database if tables don't exist
+            initializeDatabase($db);
+            
+        } catch (PDOException $e) {
+            die('Database connection failed: ' . $e->getMessage());
+        }
     }
     
-    try {
-        // Set SQLite connection with timeout and busy timeout to handle locking
-        // SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX | SQLITE_OPEN_SHAREDCACHE
-        $dsn = 'sqlite:' . $dbFile;
-        $options = [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_TIMEOUT => 60, // 60 second timeout
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-        ];
-        
-        // Create the database connection
-        $db = new PDO($dsn, null, null, $options);
-        
-        // Make sure we use WAL mode for better concurrency
-        $db->exec('PRAGMA journal_mode=WAL;');
-        
-        // Set busy timeout to 5000ms (5 seconds)
-        $db->exec('PRAGMA busy_timeout=5000;');
-        
-        // Enable foreign keys
-        $db->exec('PRAGMA foreign_keys=ON;');
-        
-        return $db;
-    } catch (PDOException $e) {
-        // Log the error
-        error_log('Database connection failed: ' . $e->getMessage());
-        
-        // Rethrow the exception
-        throw $e;
-    }
+    return $db;
 }
 
 /**
- * Runs database schema initialization and defaults as needed
+ * Initialize database with required tables if they don't exist
  * 
  * @param PDO $db Database connection
  */
 function initializeDatabase($db) {
     try {
-        // Create tables if they don't exist
-        $db->exec("
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT NOT NULL UNIQUE,
-                password TEXT NOT NULL,
-                email TEXT UNIQUE,
-                avatar TEXT,
-                is_mod INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
+        // Check if users table exists
+        $result = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='users'");
+        
+        if (!$result->fetch()) {
+            // Create users table
+            $db->exec('
+                CREATE TABLE users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL UNIQUE,
+                    password TEXT NOT NULL,
+                    email TEXT,
+                    avatar TEXT DEFAULT "avatar1.svg",
+                    bio TEXT,
+                    is_mod INTEGER DEFAULT 0,
+                    is_banned INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ');
             
-            CREATE TABLE IF NOT EXISTS posts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                content TEXT NOT NULL,
-                user_id INTEGER,
-                image_url TEXT,
-                video_url TEXT,
-                clip_id TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id)
-            );
+            // Create posts table
+            $db->exec('
+                CREATE TABLE posts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    title TEXT,
+                    content TEXT NOT NULL,
+                    flair TEXT,
+                    image_url TEXT,
+                    video_url TEXT,
+                    upvotes INTEGER DEFAULT 0,
+                    downvotes INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+            ');
             
-            CREATE TABLE IF NOT EXISTS comments (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                content TEXT NOT NULL,
-                post_id INTEGER,
-                user_id INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (post_id) REFERENCES posts(id),
-                FOREIGN KEY (user_id) REFERENCES users(id)
-            );
+            // Create comments table
+            $db->exec('
+                CREATE TABLE comments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    post_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    content TEXT NOT NULL,
+                    parent_id INTEGER,
+                    upvotes INTEGER DEFAULT 0,
+                    downvotes INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (post_id) REFERENCES posts(id),
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (parent_id) REFERENCES comments(id)
+                )
+            ');
             
-            CREATE TABLE IF NOT EXISTS votes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                post_id INTEGER,
-                user_id INTEGER,
-                comment_id INTEGER,
-                vote_type INTEGER, -- 1 for upvote, -1 for downvote
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (post_id) REFERENCES posts(id),
-                FOREIGN KEY (user_id) REFERENCES users(id),
-                FOREIGN KEY (comment_id) REFERENCES comments(id)
-            );
+            // Create votes table
+            $db->exec('
+                CREATE TABLE votes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    post_id INTEGER,
+                    comment_id INTEGER,
+                    vote_type INTEGER NOT NULL, -- 1 for upvote, -1 for downvote
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (post_id) REFERENCES posts(id),
+                    FOREIGN KEY (comment_id) REFERENCES comments(id),
+                    UNIQUE(user_id, post_id, comment_id)
+                )
+            ');
             
-            CREATE TABLE IF NOT EXISTS emotes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE,
-                file_path TEXT NOT NULL,
-                width INTEGER DEFAULT 24,
-                height INTEGER DEFAULT 24,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
+            // Create emotes table
+            $db->exec('
+                CREATE TABLE emotes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT UNIQUE NOT NULL,
+                    image_url TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ');
             
-            CREATE TABLE IF NOT EXISTS tags (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE,
-                color TEXT NOT NULL,
-                is_default INTEGER DEFAULT 0
-            );
+            // Add default emotes
+            $defaultEmotes = [
+                ['name' => 'Kek', 'image_url' => 'assets/emotes/kek.png'],
+                ['name' => 'Rage', 'image_url' => 'assets/emotes/rage.png'],
+                ['name' => 'Pepe', 'image_url' => 'assets/emotes/pepe.png'],
+                ['name' => 'Sadge', 'image_url' => 'assets/emotes/sadge.png'],
+                ['name' => 'Pog', 'image_url' => 'assets/emotes/pog.png'],
+                ['name' => 'Yikes', 'image_url' => 'assets/emotes/yikes.png']
+            ];
             
-            CREATE TABLE IF NOT EXISTS post_tags (
-                post_id INTEGER NOT NULL,
-                tag_id INTEGER NOT NULL,
-                PRIMARY KEY (post_id, tag_id),
-                FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
-                FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-            );
+            $stmt = $db->prepare('INSERT INTO emotes (name, image_url) VALUES (?, ?)');
+            foreach ($defaultEmotes as $emote) {
+                $stmt->execute([$emote['name'], $emote['image_url']]);
+            }
             
-            CREATE TABLE IF NOT EXISTS status_updates (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                content TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            );
-        ");
+            // Create streams table for tracking live streams
+            $db->exec('
+                CREATE TABLE streams (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    platform TEXT NOT NULL,
+                    channel_id TEXT NOT NULL,
+                    is_live INTEGER DEFAULT 0,
+                    title TEXT,
+                    viewers INTEGER DEFAULT 0,
+                    thumbnail TEXT,
+                    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    UNIQUE(user_id, platform)
+                )
+            ');
+            
+            // Add default admin user
+            $hashedPassword = password_hash('admin123', PASSWORD_DEFAULT);
+            $db->exec("INSERT INTO users (username, password, is_mod) VALUES ('admin', '$hashedPassword', 1)");
+            
+            // Add a default regular user
+            $hashedUserPassword = password_hash('user123', PASSWORD_DEFAULT);
+            $db->exec("INSERT INTO users (username, password, avatar) VALUES ('404JesterNotFound', '$hashedUserPassword', 'avatar2.svg')");
+            
+            // Add some sample posts
+            $db->exec("
+                INSERT INTO posts (user_id, title, content, flair) 
+                VALUES 
+                (1, 'Welcome to IP2∞', 'Welcome to our new forum! This is a place to discuss all things IP2 related. Feel free to share content, videos, or just chat with the community.', 'Announcement'),
+                (2, 'Testing video uploads #Pog', 'Just uploaded my first video here! The quality is pretty good. #Pog has anyone else tried this feature yet?', 'Question')
+            ");
+        }
+        
     } catch (PDOException $e) {
-        error_log('Database initialization failed: ' . $e->getMessage());
-        throw $e;
+        die('Database initialization failed: ' . $e->getMessage());
     }
 }
 ?>

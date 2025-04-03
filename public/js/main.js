@@ -1,88 +1,120 @@
 /**
- * IP2∞Social.network JavaScript functionality
+ * Main JavaScript file for IP2∞ forum
  */
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Flair dropdown toggle
-    const flairToggle = document.getElementById('flair-dropdown-toggle');
-    const flairDropdown = document.getElementById('flair-dropdown');
+    // Character counter for status updates
+    const statusTextarea = document.querySelector('.status-textarea');
+    const statusButton = document.querySelector('.status-button');
     
-    if (flairToggle && flairDropdown) {
-        // Load available flairs via AJAX
-        fetch('get_flairs.php')
-            .then(response => response.json())
-            .then(flairs => {
-                const flairContent = flairDropdown.querySelector('.flair-dropdown-content');
-                
-                // Generate flair options
-                flairs.forEach(flair => {
-                    const flairItem = document.createElement('div');
-                    flairItem.className = 'flair-item';
-                    flairItem.setAttribute('data-flair-id', flair.id);
-                    flairItem.style.color = 'white';
-                    flairItem.style.backgroundColor = flair.color;
-                    flairItem.textContent = flair.name;
-                    
-                    flairItem.addEventListener('click', function() {
-                        // Set selected flair
-                        document.getElementById('selected-flair').value = flair.id;
-                        
-                        // Update button text
-                        flairToggle.innerHTML = `<i class="fas fa-tag"></i> ${flair.name}`;
-                        flairToggle.style.color = 'white';
-                        flairToggle.style.backgroundColor = flair.color;
-                        
-                        // Hide dropdown
-                        flairDropdown.classList.remove('show');
-                    });
-                    
-                    flairContent.appendChild(flairItem);
-                });
-            })
-            .catch(error => console.error('Error loading flairs:', error));
-        
-        // Toggle dropdown on button click
-        flairToggle.addEventListener('click', function(e) {
-            e.preventDefault();
-            flairDropdown.classList.toggle('show');
-            
-            // Position the dropdown
-            if (flairDropdown.classList.contains('show')) {
-                const buttonRect = flairToggle.getBoundingClientRect();
-                flairDropdown.style.top = `${buttonRect.bottom}px`;
-                flairDropdown.style.left = `${buttonRect.left}px`;
-            }
-        });
-        
-        // Close dropdown when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!flairToggle.contains(e.target) && !flairDropdown.contains(e.target)) {
-                flairDropdown.classList.remove('show');
+    if (statusTextarea && statusButton) {
+        statusTextarea.addEventListener('input', function() {
+            if (this.value.trim().length > 0) {
+                statusButton.removeAttribute('disabled');
+            } else {
+                statusButton.setAttribute('disabled', 'disabled');
             }
         });
     }
     
-    // Handle post form submission with flair
-    const postForm = document.getElementById('post-form');
-    if (postForm) {
-        postForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(postForm);
-            
-            fetch('create_post.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    window.location.href = 'index.php';
-                } else {
-                    alert(data.message || 'Error creating post');
-                }
-            })
-            .catch(error => console.error('Error:', error));
+    // Add Flair button
+    const addFlairButton = document.getElementById('add-flair');
+    if (addFlairButton) {
+        addFlairButton.addEventListener('click', function() {
+            fetch('get_flairs.php')
+                .then(response => response.json())
+                .then(flairs => {
+                    if (flairs.length === 0) {
+                        console.error('Error loading flairs:', flairs);
+                        return;
+                    }
+                    
+                    // Create a dropdown for flair selection
+                    const dropdown = document.createElement('div');
+                    dropdown.className = 'flair-dropdown';
+                    dropdown.style.position = 'absolute';
+                    dropdown.style.backgroundColor = 'var(--content-bg)';
+                    dropdown.style.border = '1px solid var(--border-color)';
+                    dropdown.style.borderRadius = '4px';
+                    dropdown.style.padding = '10px';
+                    dropdown.style.zIndex = '100';
+                    dropdown.style.maxHeight = '200px';
+                    dropdown.style.overflowY = 'auto';
+                    
+                    flairs.forEach(flair => {
+                        const flairOption = document.createElement('div');
+                        flairOption.className = 'flair-option';
+                        flairOption.textContent = flair;
+                        flairOption.style.padding = '5px 10px';
+                        flairOption.style.cursor = 'pointer';
+                        flairOption.style.borderRadius = '3px';
+                        
+                        flairOption.addEventListener('mouseover', function() {
+                            this.style.backgroundColor = 'var(--hover-bg)';
+                        });
+                        
+                        flairOption.addEventListener('mouseout', function() {
+                            this.style.backgroundColor = 'transparent';
+                        });
+                        
+                        flairOption.addEventListener('click', function() {
+                            // Add flair to the beginning of the text
+                            if (statusTextarea.value.length > 0 && !statusTextarea.value.startsWith('[' + flair + '] ')) {
+                                statusTextarea.value = '[' + flair + '] ' + statusTextarea.value;
+                            } else {
+                                statusTextarea.value = '[' + flair + '] ';
+                            }
+                            
+                            // Remove dropdown
+                            dropdown.remove();
+                            
+                            // Focus textarea and enable button
+                            statusTextarea.focus();
+                            statusButton.removeAttribute('disabled');
+                        });
+                        
+                        dropdown.appendChild(flairOption);
+                    });
+                    
+                    // Position dropdown below the button
+                    const buttonRect = addFlairButton.getBoundingClientRect();
+                    dropdown.style.top = (buttonRect.bottom + window.scrollY) + 'px';
+                    dropdown.style.left = (buttonRect.left + window.scrollX) + 'px';
+                    
+                    // Add dropdown to page
+                    document.body.appendChild(dropdown);
+                    
+                    // Close dropdown when clicking outside
+                    document.addEventListener('click', function closeDropdown(e) {
+                        if (!dropdown.contains(e.target) && e.target !== addFlairButton) {
+                            dropdown.remove();
+                            document.removeEventListener('click', closeDropdown);
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading flairs:', error);
+                });
+        });
+    }
+    
+    // Add image button
+    const addImageButton = document.getElementById('add-image');
+    if (addImageButton) {
+        addImageButton.addEventListener('click', function() {
+            const imageUrl = prompt('Enter image URL:');
+            if (imageUrl && imageUrl.trim().length > 0) {
+                statusTextarea.value += '\n[image:' + imageUrl.trim() + ']';
+                statusButton.removeAttribute('disabled');
+            }
+        });
+    }
+    
+    // Add video button
+    const addVideoButton = document.getElementById('add-video');
+    if (addVideoButton) {
+        addVideoButton.addEventListener('click', function() {
+            window.location.href = 'upload.php';
         });
     }
 });
