@@ -418,6 +418,7 @@ try {
     <title><?php echo htmlspecialchars($forumTitle); ?> - Single Topic Discussion Board</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <script src="js/main.js"></script>
 </head>
 <body>
     <div class="container">
@@ -473,6 +474,14 @@ try {
                 <!-- Post toolbar -->
                 <div class="post-toolbar">
                     <div class="post-tools">
+                <button class="post-tool flair-tool" id="flair-dropdown-toggle">
+                    <i class="fas fa-tag"></i> Pick a Flair
+                </button>
+                <div class="flair-dropdown" id="flair-dropdown">
+                    <div class="flair-dropdown-content">
+                        <!-- Flairs will be loaded via JavaScript -->
+                    </div>
+                </div>
                         <a href="#" class="post-tool"><i class="fas fa-image"></i></a>
                         <a href="#" class="post-tool"><i class="far fa-smile"></i></a>
                         <a href="#" class="post-tool"><i class="fas fa-gift"></i></a>

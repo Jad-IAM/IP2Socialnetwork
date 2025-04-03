@@ -859,3 +859,96 @@ footer {
     outline: none;
     box-shadow: 0 0 0 2px var(--accent-secondary), 0 0 10px 2px rgba(138, 43, 226, 0.6);
 }
+/* Flair dropdown styles */
+.flair-tool {
+    position: relative;
+}
+
+.flair-dropdown {
+    display: none;
+    position: absolute;
+    z-index: 1000;
+    background-color: var(--content-bg);
+    min-width: 160px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.flair-dropdown.show {
+    display: block;
+}
+
+.flair-dropdown-content {
+    padding: 10px;
+}
+
+.flair-item {
+    padding: 8px 12px;
+    margin-bottom: 5px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.flair-item:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+}
+
+/* Add a fixed height for the flairs dropdown */
+.flair-dropdown {
+    max-height: 250px;
+}
+/* Dropdown-style flair selector */
+.dropdown-style {
+    position: relative;
+}
+
+.flair-select {
+    width: 100%;
+    padding: 10px;
+    border-radius: 4px;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url('data:image/svg+xml;utf8,<svg fill="white" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 30px;
+    cursor: pointer;
+}
+
+.flair-select option {
+    background-color: var(--background-color);
+    color: var(--text-primary);
+    padding: 10px;
+}
+/* Dropdown-style flair selector */
+.dropdown-style {
+    position: relative;
+}
+
+.flair-select {
+    width: 100%;
+    padding: 10px;
+    border-radius: 4px;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url('data:image/svg+xml;utf8,<svg fill="white" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 30px;
+    cursor: pointer;
+}
+
+.flair-select option {
+    background-color: var(--background-color);
+    color: var(--text-primary);
+    padding: 10px;
+}
