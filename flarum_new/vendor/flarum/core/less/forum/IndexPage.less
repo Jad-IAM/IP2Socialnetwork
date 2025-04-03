@@ -1,0 +1,35 @@
+// ------------------------------------
+// Sidebar
+
+@media @desktop-up {
+  .IndexPage-nav .App-primaryControl {
+    margin-bottom: 20px;
+
+    .Button {
+      .Button--block();
+    }
+  }
+}
+
+// ------------------------------------
+// Results
+
+.IndexPage-toolbar {
+  margin-bottom: 15px;
+}
+.IndexPage-toolbar-view, .IndexPage-toolbar-action {
+  margin: 0;
+  list-style: none;
+  padding: 0;
+
+  > li {
+    display: inline-block;
+  }
+}
+.IndexPage-toolbar, .IndexPage-toolbar-view, .IndexPage-toolbar-action {
+  display: flex;
+  gap: 5px;
+}
+.IndexPage-toolbar-action {
+  margin-inline-start: auto;
+}
