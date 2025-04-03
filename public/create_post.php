@@ -77,6 +77,9 @@ try {
     $errorMessage = '';
     
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_post') {
+        // Handle AJAX requests
+        $isAjax = !empty($_SERVER["HTTP_X_REQUESTED_WITH"]) && strtolower($_SERVER["HTTP_X_REQUESTED_WITH"]) == "xmlhttprequest";
+
         $title = trim($_POST['title'] ?? '');
         $content = trim($_POST['content'] ?? '');
         $link = trim($_POST['link'] ?? '');
@@ -127,9 +130,21 @@ try {
                 
                 // Redirect to the main page after a short delay
                 header('refresh:2;url=index.php');
+                // If AJAX request, return JSON response instead of redirecting
+                if ($isAjax) {
+                    header("Content-Type: application/json");
+                    echo json_encode(["success" => true, "message" => "Post created successfully!"]);
+                    exit;
+                }
             } catch (PDOException $e) {
                 $db->rollBack();
                 $errorMessage = 'Error creating post: ' . $e->getMessage();
+                // If AJAX request, return JSON response
+                if ($isAjax) {
+                    header("Content-Type: application/json");
+                    echo json_encode(["success" => false, "message" => "Error creating post: " . $e->getMessage()]);
+                    exit;
+                }
             }
         }
     }
@@ -386,7 +401,7 @@ try {
                         </div>
                     <?php endif; ?>
                     
-                    <form method="POST" action="">
+<form method="POST" action="" id="post-form">
                         <input type="hidden" name="action" value="create_post">
                         
                         <div class="form-group">
@@ -431,16 +446,16 @@ try {
                         
                         <div class="form-group">
                             <p class="format-hint">You can add emotes to your title with #/EmoteName syntax - <a href="emotes.php">See available emotes</a></p>
-                            <label>Post Flair</label>
-                            <div class="tag-selection">
-                                <?php foreach ($tags as $tag): ?>
-                                    <div class="tag-item">
-                                        <input type="checkbox" id="tag-<?php echo $tag['id']; ?>" name="tags[]" value="<?php echo $tag['id']; ?>" class="tag-checkbox">
-                                        <label for="tag-<?php echo $tag['id']; ?>" class="tag-label" style="background-color: <?php echo htmlspecialchars($tag['color']); ?>">
-                                            <?php echo htmlspecialchars($tag['name']); ?>
-                                        </label>
-                                    </div>
-                                <?php endforeach; ?>
+                            <label>Pick a Flair</label>
+                            <div class="flair-selection dropdown-style">
+                                <select name="tags[]" class="form-control flair-select">
+                                    <option value="">Select a Flair (Optional)</option>
+                                    <?php foreach ($tags as $tag): ?>
+                                        <option value="<?php echo $tag["id"]; ?>" data-color="<?php echo htmlspecialchars($tag["color"]); ?>">
+                                            <?php echo htmlspecialchars($tag["name"]); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
                         </div>
                         
@@ -472,7 +487,7 @@ try {
                         <li>Video posts for media</li>
                     </ul>
                     
-                    <h4 class="section-title">Post Flairs</h4>
+                    <h4 class="section-title">Pick a Flair</h4>
                     <ul class="rules-list">
                         <li>Add relevant tags to your post</li>
                         <li>Breaking News for important updates</li>
@@ -520,5 +535,41 @@ try {
             }
         });
     </script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const flairSelect = document.querySelector(".flair-select");
+    if (flairSelect) {
+        flairSelect.addEventListener("change", function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption.value) {
+                const color = selectedOption.getAttribute("data-color");
+                this.style.backgroundColor = color;
+                this.style.color = "white";
+            } else {
+                this.style.backgroundColor = "";
+                this.style.color = "";
+            }
+        });
+    }
+});
+</script>
 </body>
 </html>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const flairSelect = document.querySelector(".flair-select");
+    if (flairSelect) {
+        flairSelect.addEventListener("change", function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption.value) {
+                const color = selectedOption.getAttribute("data-color");
+                this.style.backgroundColor = color;
+                this.style.color = "white";
+            } else {
+                this.style.backgroundColor = "";
+                this.style.color = "";
+            }
+        });
+    }
+});
+</script>
