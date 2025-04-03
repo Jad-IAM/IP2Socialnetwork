@@ -1,0 +1,71 @@
+.DiscussionPage-nav {
+  > ul {
+    padding: 0;
+    margin: 0;
+    list-style: none;
+  }
+}
+
+@media @phone {
+  .DiscussionPage-nav {
+    margin: 0 -15px;
+    border-bottom: 1px solid var(--control-bg);
+
+    > ul > li {
+      margin: 15px;
+      display: inline-block;
+
+      &.item-controls, &.item-scrubber {
+        margin: 0;
+        display: block;
+      }
+    }
+  }
+}
+@media @tablet-up {
+  .DiscussionPage {
+    --sidebar-width: 150px;
+    --gap: 55px;
+
+    .Page {
+      .Page--cols();
+
+      &-container {
+        flex-direction: row-reverse;
+      }
+
+      &-content {
+        margin-top: 10px;
+      }
+
+      &-sidebar {
+        margin-top: 0;
+      }
+    }
+  }
+
+  .DiscussionPage-nav {
+    align-self: start;
+    position: sticky;
+    top: var(--header-height);
+    padding-top: 32px;
+    z-index: 1;
+
+    > ul {
+      > li {
+        margin-bottom: 10px;
+      }
+    }
+    .ButtonGroup, :not(.ButtonGroup) > .Button {
+      width: 100%;
+    }
+    .ButtonGroup:not(.itemCount1) {
+      .Button:first-of-type {
+        width: 77%;
+      }
+      .Dropdown-toggle {
+        width: 22%;
+      }
+    }
+  }
+}
