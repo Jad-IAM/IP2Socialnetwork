@@ -5,7 +5,7 @@ $dbDirectory = dirname($dbFile);
 
 // Set forum title and description
 $forumTitle = "IP2∞";
-$forumSubtitle = "IP2Always";
+$forumSubtitle = "(IP2Infinity.network)";
 
 // Make sure SQLite directory exists
 if (!is_dir($dbDirectory)) {
@@ -371,11 +371,25 @@ try {
 
     // Get all emotes for the sidebar
     function getAllEmotes($db) {
-        $stmt = $db->query("SELECT code, image_url FROM emotes ORDER BY code");
+        $stmt = $db->query("SELECT code, image_url FROM emotes ORDER BY code ASC");
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+    
+    // Get posts
+    $page = isset($_GET['page']) ? $_GET['page'] : 'home';
+    
+    if ($page === 'home') {
+        $stmt = $db->query("
+            SELECT p.*, u.username, u.avatar 
+            FROM posts p 
+            JOIN users u ON p.user_id = u.id 
+            ORDER BY p.created_at DESC
+        ");
+        $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
 } catch (PDOException $e) {
-    die("Database error: " . $e->getMessage());
+    die('Database connection failed: ' . $e->getMessage());
 }
 ?>
 
@@ -384,185 +398,184 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($forumTitle); ?></title>
+    <title><?php echo htmlspecialchars($forumTitle); ?> - Single Topic Discussion Board</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
 </head>
 <body>
     <div class="container">
-        <header>
-            <div class="banner">
-                <picture>
-                    <source srcset="assets/images/banner.svg" type="image/svg+xml">
-                    <img src="assets/images/banner.png" alt="IP2 Network Banner" class="banner-image">
-                </picture>
+        <!-- Banner image behind header -->
+        <div class="banner">
+            <img src="assets/images/banner.png" alt="IP2 Network Banner" class="banner-image">
+        </div>
+        
+        <!-- Subreddit-style header -->
+        <header class="subreddit-header">
+            <div class="subreddit-title">
+                <h1><?php echo htmlspecialchars($forumTitle); ?> <?php echo htmlspecialchars($forumSubtitle); ?></h1>
             </div>
-            <div class="header-content">
-                <div class="site-branding">
-                    <h1 class="site-title"><?php echo htmlspecialchars($forumTitle); ?></h1>
-                    <span class="site-subtitle"><?php echo htmlspecialchars($forumSubtitle); ?></span>
-                </div>
-                <div class="user-actions">
+            
+            <nav class="subreddit-nav">
+                <ul class="nav-tabs">
+                    <li class="nav-tab active"><a href="#">Timeline</a></li>
+                    <li class="nav-tab"><a href="#">Members</a></li>
+                    <li class="nav-tab"><a href="#">Links</a></li>
+                </ul>
+                
+                <div class="nav-actions">
                     <?php if (isset($_SESSION['user_id'])): ?>
-                        <a href="#" class="star-button"><i class="fas fa-star"></i></a>
-                        <div class="dropdown">
+                        <a href="#" class="favorite-button"><i class="fas fa-star"></i></a>
+                        <div class="more-options">
                             <button class="more-button"><i class="fas fa-ellipsis-h"></i></button>
                         </div>
                         <a href="#" class="member-button">Member</a>
                     <?php else: ?>
-                        <a href="#" class="star-button"><i class="far fa-star"></i></a>
-                        <div class="dropdown">
+                        <a href="#" class="favorite-button"><i class="far fa-star"></i></a>
+                        <div class="more-options">
                             <button class="more-button"><i class="fas fa-ellipsis-h"></i></button>
                         </div>
-                        <a href="index.php?page=login" class="login-button">Login</a>
+                        <a href="index.php?page=login" class="member-button">Login</a>
                     <?php endif; ?>
                 </div>
-            </div>
-            
-            <nav class="main-nav">
-                <ul>
-                    <li class="active"><a href="index.php">Timeline</a></li>
-                    <li><a href="#">Members</a></li>
-                    <li><a href="#">Links</a></li>
-                </ul>
             </nav>
         </header>
-        
-        <main class="content">
-            <div class="content-main">
-                <!-- Post creation area -->
-                <?php if (isset($_SESSION['user_id'])): ?>
-                <div class="post-creation">
-                    <div class="post-creation-header">
-                        <img src="assets/avatars/<?php echo htmlspecialchars($_SESSION['avatar'] ?? 'default_avatar.svg'); ?>" class="user-avatar" alt="User Avatar">
-                        <div class="post-type-selector">
-                            <span>Post to <?php echo htmlspecialchars($forumTitle); ?> <i class="fas fa-caret-down"></i></span>
-                        </div>
-                        <div class="context-selector">
-                            <span>Add context <i class="fas fa-caret-down"></i></span>
-                        </div>
+
+        <div class="content-wrapper">
+            <main class="main-content">
+                <!-- Create post area -->
+                <div class="create-post">
+                    <div class="user-avatar">
+                        <img src="assets/avatars/<?php echo isset($_SESSION['avatar']) ? $_SESSION['avatar'] : 'default_avatar.svg'; ?>" alt="User avatar">
                     </div>
-                    
-                    <form method="POST" action="index.php" class="post-form">
-                        <input type="hidden" name="action" value="create_post">
-                        <textarea name="title" placeholder="What's on your mind?" required></textarea>
-                        <input type="hidden" name="content" value="Post content here">
-                        <input type="hidden" name="video_url" value="">
-                        
-                        <div class="post-actions">
-                            <button type="button" class="media-btn" title="Add image"><i class="far fa-image"></i></button>
-                            <button type="button" class="emoji-btn" title="Add emoji"><i class="far fa-smile"></i></button>
-                            <button type="button" class="gif-btn" title="Add GIF"><i class="fas fa-gift"></i></button>
-                            <button type="button" class="location-btn" title="Add location"><i class="fas fa-map-marker-alt"></i></button>
-                            <button type="button" class="alert-btn" title="Add alert"><i class="fas fa-exclamation-triangle"></i></button>
-                            <button type="button" class="event-btn" title="Add event"><i class="far fa-calendar-alt"></i></button>
-                            <button type="button" class="format-btn" title="Format text"><i class="fas fa-text-height"></i></button>
-                            <button type="submit" class="submit-btn">Post</button>
-                        </div>
-                    </form>
+                    <div class="post-input">
+                        <input type="text" placeholder="What's on your mind?" class="post-textbox">
+                    </div>
                 </div>
-                <?php endif; ?>
-                
-                <!-- Post sorting -->
-                <div class="post-sorting">
-                    <span>Sort by <strong>New Posts</strong> <i class="fas fa-caret-down"></i></span>
+
+                <!-- Post toolbar -->
+                <div class="post-toolbar">
+                    <div class="post-tools">
+                        <a href="#" class="post-tool"><i class="fas fa-image"></i></a>
+                        <a href="#" class="post-tool"><i class="far fa-smile"></i></a>
+                        <a href="#" class="post-tool"><i class="fas fa-gift"></i></a>
+                        <a href="#" class="post-tool"><i class="fas fa-link"></i></a>
+                        <a href="#" class="post-tool"><i class="fas fa-exclamation-triangle"></i></a>
+                        <a href="#" class="post-tool"><i class="far fa-calendar"></i></a>
+                        <a href="#" class="post-tool"><i class="fas fa-font"></i></a>
+                    </div>
                 </div>
-                
+
+                <!-- Sort options -->
+                <div class="sort-options">
+                    <span>Sort by</span>
+                    <select class="sort-select">
+                        <option>New Posts</option>
+                        <option>Top Posts</option>
+                        <option>Hot Posts</option>
+                    </select>
+                </div>
+
                 <!-- Posts list -->
                 <div class="posts-list">
-                    <?php
-                    $stmt = $db->query("SELECT p.*, u.username FROM posts p JOIN users u ON p.user_id = u.id ORDER BY p.created_at DESC");
-                    $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                    
-                    foreach ($posts as $post):
-                        $vote_count = getVoteCount($db, $post['id']);
-                        $comment_count = getCommentCount($db, $post['id']);
-                        $user_vote = isset($_SESSION['user_id']) ? getUserVote($db, $post['id'], $_SESSION['user_id']) : 0;
-                        $tags = getPostTags($db, $post['id']);
-                    ?>
-                    <div class="post">
-                        <div class="vote-sidebar">
-                            <div class="vote-count"><?php echo $vote_count; ?></div>
-                            <a href="#" class="upvote-btn <?php echo $user_vote == 1 ? 'voted' : ''; ?>">
-                                <i class="fas fa-arrow-up"></i>
-                            </a>
-                        </div>
-                        <div class="post-content">
-                            <div class="post-meta">
-                                <?php if (!empty($post['clip_id'])): ?>
-                                <span class="post-type">
-                                    <i class="fas fa-play-circle"></i>
-                                </span>
-                                <?php endif; ?>
-                                <span class="post-author">posted <?php echo timeAgo($post['created_at']); ?> ago by <a href="#"><?php echo htmlspecialchars($post['username']); ?></a></span>
-                                <?php if (in_array('CLIP', $tags)): ?>
-                                <span class="clip-tag">CLIP <i class="fas fa-play"></i></span>
-                                <?php endif; ?>
-                                <?php if (in_array('Quality', $tags)): ?>
-                                <span class="quality-tag">QUALITY <i class="fas fa-fire"></i></span>
-                                <?php endif; ?>
-                            </div>
-                            
-                            <h2 class="post-title"><a href="#"><?php echo htmlspecialchars($post['title']); ?></a></h2>
-                            
-                            <div class="post-body">
-                                <div class="post-text"><?php echo nl2br(htmlspecialchars($post['content'])); ?></div>
+                    <?php if (isset($posts) && !empty($posts)): ?>
+                        <?php foreach ($posts as $post): ?>
+                            <?php 
+                                $voteCount = getVoteCount($db, $post['id']);
+                                $commentCount = getCommentCount($db, $post['id']);
+                                $userVote = isset($_SESSION['user_id']) ? getUserVote($db, $post['id'], $_SESSION['user_id']) : 0;
+                                $tags = getPostTags($db, $post['id']);
+                            ?>
+                            <div class="post">
+                                <!-- Left vote sidebar -->
+                                <div class="vote-sidebar">
+                                    <a href="<?php echo isset($_SESSION['user_id']) ? "index.php?action=vote&post_id={$post['id']}&vote=1" : "#"; ?>" class="vote upvote <?php echo $userVote == 1 ? 'voted' : ''; ?>">
+                                        <i class="fas fa-arrow-up"></i>
+                                    </a>
+                                    <span class="vote-count"><?php echo $voteCount; ?></span>
+                                    <a href="<?php echo isset($_SESSION['user_id']) ? "index.php?action=vote&post_id={$post['id']}&vote=-1" : "#"; ?>" class="vote downvote <?php echo $userVote == -1 ? 'voted' : ''; ?>">
+                                        <i class="fas fa-arrow-down"></i>
+                                    </a>
+                                </div>
                                 
-                                <?php if (!empty($post['video_url'])): ?>
-                                <div class="video-container">
-                                    <div class="video-placeholder">
-                                        <div class="play-button">
-                                            <i class="fas fa-play"></i>
+                                <!-- Post content -->
+                                <div class="post-content">
+                                    <div class="post-meta">
+                                        <img src="assets/avatars/<?php echo $post['avatar'] ?: 'default_avatar.svg'; ?>" alt="User avatar" class="post-avatar">
+                                        <div class="post-info">
+                                            <div class="post-user">
+                                                <a href="#" class="username"><?php echo htmlspecialchars($post['username']); ?></a>
+                                                <span class="post-time"><?php echo timeAgo($post['created_at']); ?></span>
+                                                <?php if (!empty($tags)): ?>
+                                                    <div class="post-tags">
+                                                        <?php foreach ($tags as $tag): ?>
+                                                            <span class="tag"><?php echo htmlspecialchars($tag); ?></span>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </div>
                                         </div>
-                                        <div class="video-controls">
-                                            <span class="video-time">0:00</span>
-                                            <div class="video-progress">
-                                                <div class="progress-bar"></div>
-                                            </div>
-                                            <div class="video-buttons">
-                                                <button class="video-mute"><i class="fas fa-volume-mute"></i></button>
-                                                <button class="video-fullscreen"><i class="fas fa-expand"></i></button>
-                                                <button class="video-more"><i class="fas fa-ellipsis-v"></i></button>
-                                            </div>
+                                        <div class="post-actions">
+                                            <button class="more-button"><i class="fas fa-ellipsis-h"></i></button>
                                         </div>
                                     </div>
+                                    
+                                    <h2 class="post-title">
+                                        <a href="index.php?page=post&id=<?php echo $post['id']; ?>"><?php echo htmlspecialchars($post['title']); ?></a>
+                                    </h2>
+                                    
+                                    <div class="post-text">
+                                        <?php echo nl2br(htmlspecialchars($post['content'])); ?>
+                                    </div>
+                                    
+                                    <?php if ($post['video_url']): ?>
+                                        <div class="post-media">
+                                            <div class="video-container">
+                                                <video controls>
+                                                    <source src="<?php echo htmlspecialchars($post['video_url']); ?>" type="video/mp4">
+                                                    Your browser does not support the video tag.
+                                                </video>
+                                                <div class="play-button">
+                                                    <i class="fas fa-play"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
+                                    
+                                    <div class="post-footer">
+                                        <a href="index.php?page=post&id=<?php echo $post['id']; ?>" class="post-action">
+                                            <i class="far fa-comment-alt"></i>
+                                            <span class="action-text"><?php echo $commentCount; ?> Comments</span>
+                                        </a>
+                                        <a href="#" class="post-action">
+                                            <i class="fas fa-share"></i>
+                                            <span class="action-text">Share</span>
+                                        </a>
+                                        <a href="#" class="post-action">
+                                            <i class="far fa-bookmark"></i>
+                                            <span class="action-text">Save</span>
+                                        </a>
+                                    </div>
                                 </div>
-                                <?php endif; ?>
                             </div>
-                            
-                            <div class="post-actions">
-                                <span class="comment-count"><?php echo $comment_count; ?> comments</span>
-                                <button class="action-btn award-btn">award</button>
-                                <button class="action-btn share-btn">share</button>
-                                <button class="action-btn crosspost-btn">crosspost</button>
-                                <button class="action-btn save-btn">save</button>
-                                <button class="action-btn report-btn">report</button>
-                                <button class="action-btn block-btn">block</button>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <div class="no-posts">No posts yet. Be the first to post!</div>
+                    <?php endif; ?>
                 </div>
-            </div>
-            
+            </main>
+
             <aside class="sidebar">
-                <!-- Buttons Section -->
+                <!-- Sidebar buttons -->
                 <div class="sidebar-buttons">
                     <div class="button-row">
-                        <a href="#" class="sidebar-button live-button">LIVE</a>
-                        <a href="#" class="sidebar-button clips-button">CLIPS</a>
-                    </div>
-                    <div class="button-row">
+                        <a href="#" class="sidebar-button live-button"><span class="live-icon">⚫</span> LIVE</a>
                         <a href="#" class="sidebar-button leaderboard-button">LEADERBOARD</a>
-                        <a href="#" class="sidebar-button clipmaker-button">CLIP MAKER</a>
                     </div>
                     <div class="button-row">
-                        <a href="#" class="sidebar-button videohosts-button">VIDEO HOSTS</a>
-                        <a href="#" class="sidebar-button ocdfixer-button">OCD FIXER</a>
+                        <a href="upload.php" class="sidebar-button upload-button">UPLOAD VIDEO</a>
                     </div>
                 </div>
                 
-                <!-- About Box -->
                 <!-- About Box -->
                 <div class="about-box">
                     <h2>About</h2>
@@ -605,76 +618,27 @@ try {
                     </ul>
                 </div>
                 
-                <!-- Rules Box -->
-                <div class="rules-box">
-                    <h2>Rules</h2>
-                    <ol class="rules-list">
-                        <li>Don't be a normie.</li>
-                    </ol>
-                </div>
-                
                 <!-- Emotes Box -->
                 <div class="emotes-box">
                     <h2>Emotes</h2>
-                    <div class="emotes-description">
-                        Emote | Code <code>//#emote:...</code>
-                    </div>
-                    
                     <div class="emotes-list">
-                        <?php
+                        <?php 
                         $emotes = getAllEmotes($db);
-                        foreach ($emotes as $emote):
+                        foreach ($emotes as $emote): 
                         ?>
-                        <div class="emote-item">
-                            <div class="emote-icon">•</div>
-                            <div class="emote-code"><?php echo htmlspecialchars($emote['code']); ?></div>
-                        </div>
+                            <div class="emote">
+                                <img src="<?php echo htmlspecialchars($emote['image_url']); ?>" alt="<?php echo htmlspecialchars($emote['code']); ?>">
+                                <span class="emote-code"><?php echo htmlspecialchars($emote['code']); ?></span>
+                            </div>
                         <?php endforeach; ?>
-                        
-                        <div class="more-emotes">
-                            <a href="#">More Emotes</a>
-                        </div>
-                    </div>
-                    
-                    <div class="gif-emotes">
-                        <a href="#">Gif Emotes</a>
                     </div>
                 </div>
             </aside>
-        </main>
+        </div>
         
         <footer>
-            <div class="back-to-top">
-                <a href="#top">Back to Top</a>
-            </div>
+            <p>© <?php echo date('Y'); ?> IP2∞ Network</p>
         </footer>
     </div>
-    
-    <?php if (isset($_GET['page']) && $_GET['page'] === 'login'): ?>
-    <div class="modal login-modal">
-        <div class="modal-content">
-            <h2>Login</h2>
-            <?php if (isset($loginError)): ?>
-                <div class="error"><?php echo $loginError; ?></div>
-            <?php endif; ?>
-            <form method="POST" action="index.php">
-                <input type="hidden" name="action" value="login">
-                <div class="form-group">
-                    <label for="username">Username:</label>
-                    <input type="text" id="username" name="username" required>
-                </div>
-                <div class="form-group">
-                    <label for="password">Password:</label>
-                    <input type="password" id="password" name="password" required>
-                </div>
-                <button type="submit" class="login-submit">Login</button>
-            </form>
-            <p>
-                <small>Demo accounts: admin/admin123 or 404JesterNotFound/user123</small>
-            </p>
-            <a href="index.php" class="close-modal">Cancel</a>
-        </div>
-    </div>
-    <?php endif; ?>
 </body>
 </html>
