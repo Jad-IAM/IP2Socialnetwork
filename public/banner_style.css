@@ -1,0 +1,20 @@
+/* Custom banner styling */
+.banner {
+    width: 100%;
+    height: auto;
+    overflow: hidden;
+    position: relative;
+    background-color: #000;
+    margin-bottom: 0;
+    text-align: center;
+    max-height: 200px; /* Fixed height for the banner container */
+}
+
+.banner-image {
+    width: 100%;
+    height: auto;
+    max-height: 200px;
+    object-fit: contain; /* Ensures the entire image is shown without cropping */
+    display: block;
+    margin: 0 auto;
+}
