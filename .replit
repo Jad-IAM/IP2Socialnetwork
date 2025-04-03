@@ -27,7 +27,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd public && php -S 0.0.0.0:5000 -d display_errors=1 -d error_reporting=E_ALL"
+args = "php -S 0.0.0.0:5000 -t public -d display_errors=1 -d error_reporting=E_ALL -d log_errors=1"
 waitForPort = 5000
 
 [deployment]
