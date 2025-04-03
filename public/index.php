@@ -169,6 +169,9 @@ try {
     // Simple session management
     session_start();
     
+    // Include status updates functionality
+    require_once(__DIR__ . "/includes/status_updates.php");
+
     // Handle login
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
         $username = $_POST['username'] ?? '';
@@ -244,6 +247,25 @@ try {
         }
     }
     
+    // Handle status update creation
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_status') {
+        if (!isset($_SESSION['user_id'])) {
+            header('Location: login.php');
+            exit;
+        }
+        
+        $status_content = trim($_POST['status_content'] ?? '');
+        
+        if (!empty($status_content)) {
+            $stmt = $db->prepare("INSERT INTO status_updates (content, user_id) VALUES (?, ?)");
+            $stmt->execute([$status_content, $_SESSION['user_id']]);
+            
+            header('Location: index.php');
+            exit;
+        }
+    }
+
+
     // Handle comment creation
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_comment') {
         if (!isset($_SESSION['user_id'])) {
@@ -464,24 +486,36 @@ try {
                 <!-- Create post area -->
                 <div class="create-post">
                     <div class="user-avatar">
-                        <img src="assets/avatars/<?php echo isset($_SESSION['avatar']) ? $_SESSION['avatar'] : 'default_avatar.svg'; ?>" alt="User avatar">
+                <div class="create-post-card">
+                    <div class="post-user">
+                        <img src="assets/avatars/<?php echo isset($_SESSION["avatar"]) ? htmlspecialchars($_SESSION["avatar"]) : "default_avatar.svg"; ?>" alt="User Avatar" class="user-avatar">
                     </div>
                     <div class="post-input">
-                        <input type="text" placeholder="What's on your mind?" class="post-textbox">
+                        <form method="post" action="index.php" id="status-form">
+                            <input type="hidden" name="action" value="create_status">
+                            <input type="text" name="status_content" placeholder="Update your status..." class="status-textbox">
+                            <div class="post-actions">
+                                <button type="submit" class="post-action-btn">Update Status</button>
+                                <a href="create_post.php" class="post-action-btn create-post-btn">Create Post</a>
+                            </div>
+                        </form>
                     </div>
                 </div>
 
                 <!-- Post toolbar -->
                 <div class="post-toolbar">
                     <div class="post-tools">
-                <button class="post-tool flair-tool" id="flair-dropdown-toggle">
-                    <i class="fas fa-tag"></i> Pick a Flair
-                </button>
-                <div class="flair-dropdown" id="flair-dropdown">
-                    <div class="flair-dropdown-content">
-                        <!-- Flairs will be loaded via JavaScript -->
-                    </div>
-                </div>
+                        <a href="create_post.php" class="post-tool">
+                            <i class="fas fa-pencil-alt"></i> New Post
+                        </a>
+                        <a href="create_post.php" class="post-tool flair-tool" id="flair-dropdown-toggle">
+                            <i class="fas fa-tag"></i> Pick a Flair
+                        </a>
+                        <div class="flair-dropdown" id="flair-dropdown">
+                            <div class="flair-dropdown-content">
+                                <!-- Flairs will be loaded via JavaScript -->
+                            </div>
+                        </div>
                         <a href="#" class="post-tool"><i class="fas fa-image"></i></a>
                         <a href="#" class="post-tool"><i class="far fa-smile"></i></a>
                         <a href="#" class="post-tool"><i class="fas fa-gift"></i></a>
@@ -495,7 +529,7 @@ try {
                 <!-- Sort options -->
                 <script>
                     document.addEventListener("DOMContentLoaded", function() {
-                        const postTextbox = document.querySelector(".post-textbox");
+                        const postTextbox = document.querySelector(".status-textbox");
                         const postTools = document.querySelectorAll(".post-tool");
                         
                         if (postTextbox) {
