@@ -1,4 +1,5 @@
-<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
-  <rect width="200" height="200" fill="#333"/>
-  <text x="50%" y="50%" font-family="Arial" font-size="70" fill="#4DA3FF" dominant-baseline="middle" text-anchor="middle">J</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <circle cx="50" cy="50" r="50" fill="#2bafa7" />
+  <circle cx="50" cy="40" r="20" fill="#804f66" />
+  <path d="M25,85 Q50,60 75,85" fill="#f683e8" />
 </svg>
