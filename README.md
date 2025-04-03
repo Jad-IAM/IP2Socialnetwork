@@ -1,40 +1,64 @@
-<p align="center">
-<a href="https://flarum.org/"><img src="https://flarum.org/images/flarum.svg"></a>
-</p>
+# IP2∞Social.network
 
-<p align="center">
-<a href="https://packagist.org/packages/flarum/core"><img src="https://poser.pugx.org/flarum/core/d/total.svg" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/flarum/core"><img src="https://poser.pugx.org/flarum/core/v/stable.svg" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/flarum/core"><img src="https://poser.pugx.org/flarum/core/license.svg" alt="License"></a>
-</p>
+A custom-built forum with a focus on IP2 streamers, video sharing, and community interaction.
 
-## About Flarum
+## Features
 
-**[Flarum](https://flarum.org/) is a delightfully simple discussion platform for your website.** It's fast and easy to use, with all the features you need to run a successful community. It is designed to be:
+- User registration and login system
+- Post creation with text, links, and videos
+- Video upload functionality
+- Emote support with #/EmoteName syntax
+- Live streamers page with YouTube and Kick integration
+- Post flair/tags system
+- Sorting options (hot, top, new)
+- Responsive design with dark theme
+- Mobile-friendly interface
 
-* **Fast and simple.** No clutter, no bloat, no complex dependencies. Flarum is built with PHP so it’s quick and easy to deploy. The interface is powered by Mithril, a performant JavaScript framework with a tiny footprint.
+## Technical Details
 
-* **Beautiful and responsive.** This is forum software for humans. Flarum is carefully designed to be consistent and intuitive across platforms, out-of-the-box.
+- Built with PHP and SQLite
+- No framework used - clean, minimal code
+- File-based database for easy deployment
+- Custom-built templating system
+- Responsive design with CSS
 
-* **Powerful and extensible.** Customize, extend, and integrate Flarum to suit your community. Flarum’s architecture is amazingly flexible, with a powerful Extension API.
+## Directory Structure
 
-![screenshot](https://flarum.org/assets/flarum/home-screenshot.png)
+- `public/` - All publicly accessible files
+  - `index.php` - Main page with post timeline
+  - `login.php` & `register.php` - Authentication
+  - `upload.php` - Video upload functionality
+  - `live.php` - Streaming integration
+  - `emotes.php` - Emote management
+  - `create_post.php` - Post creation
+  - `assets/` - Static assets (images, etc.)
+  - `includes/` - PHP include files
+    - `functions.php` - Common functions
+    - `emotes.php` - Emote parsing functions
+  - `uploads/` - User-uploaded content
+- `storage/` - Database and other persistent storage
+  - `sqlite/` - SQLite database files
 
 ## Installation
 
-Read the **[Installation guide](https://docs.flarum.org/install)** to get started. For support, refer to the [documentation](https://docs.flarum.org/), and ask questions on the [community forum](https://discuss.flarum.org/) or [Discord chat](https://flarum.org/discord/).
+See `DEPLOYMENT.md` for detailed setup instructions.
 
-## Contributing
+## Default Login
 
-Thank you for considering contributing to Flarum! Please read the **[Contributing guide](https://docs.flarum.org/contributing)** to learn how you can help.
+- Username: admin
+- Password: admin123
 
-This repository only holds the Flarum skeleton application. Most development happens in [flarum/core](https://github.com/flarum/core).
+## Customization
 
-## Security Vulnerabilities
+- Banner can be changed by replacing `public/assets/images/banner.png`
+- Colors and styling can be modified in `public/styles.css`
+- Emotes can be managed through the Emotes page
 
-If you discover a security vulnerability within Flarum, please follow our [security policy](https://github.com/flarum/core/security/policy) so we can address it promptly.
+## External API Integration
+
+- YouTube Data API for live streaming status
+- Kick API for streamer information
 
 ## License
 
-Flarum is open-source software licensed under the [MIT License](https://github.com/flarum/flarum/blob/master/LICENSE).
-
+This software is proprietary and not licensed for redistribution.

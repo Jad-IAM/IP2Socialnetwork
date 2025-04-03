@@ -208,7 +208,7 @@ try {
         <!-- Subreddit-style header -->
         <header class="subreddit-header">
             <div class="subreddit-title">
-                <h1>IP2∞ (IP2Infinity.network)</h1>
+                <h1>IP2∞ (IP2.Social) (IP2Infinity.Social)</h1>
             </div>
             
             <nav class="subreddit-nav">
@@ -316,7 +316,7 @@ try {
         </div>
         
         <footer>
-            <p>© <?php echo date('Y'); ?> IP2∞ Network</p>
+            <p>© <?php echo date('Y'); ?> IP2∞ (IP2.Social)</p>
         </footer>
     </div>
 </body>

@@ -1,5 +1,6 @@
 <?php
 // IP2 Micro Forum - Single Topic Discussion Board
+require_once(__DIR__ . "/includes/functions.php");
 $dbFile = __DIR__ . '/../storage/sqlite/forum.sqlite';
 $dbDirectory = dirname($dbFile);
 
@@ -375,15 +376,31 @@ try {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
+    // Handle sorting
+    $sort = isset($_GET["sort"]) ? $_GET["sort"] : "new_posts";
+    
+    $sortSql = "";
+    switch ($sort) {
+        case "top_posts":
+            $sortSql = "ORDER BY vote_count DESC, p.created_at DESC";
+            break;
+        case "hot_posts":
+            $sortSql = "ORDER BY (vote_count * 5 + comment_count * 3) DESC, p.created_at DESC";
+            break;
+        case "new_posts":
+        default:
+            $sortSql = "$sortSql";
+            break;
+    }
     // Get posts
     $page = isset($_GET['page']) ? $_GET['page'] : 'home';
     
     if ($page === 'home') {
         $stmt = $db->query("
-            SELECT p.*, u.username, u.avatar 
+            SELECT p.*, u.username, u.avatar, (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comment_count, (SELECT SUM(vote) FROM votes WHERE post_id = p.id) as vote_count 
             FROM posts p 
             JOIN users u ON p.user_id = u.id 
-            ORDER BY p.created_at DESC
+            $sortSql
         ");
         $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -420,6 +437,7 @@ try {
                     <li class="nav-tab active"><a href="#">Timeline</a></li>
                     <li class="nav-tab"><a href="#">Members</a></li>
                     <li class="nav-tab"><a href="#">Links</a></li>
+                    <li class="nav-tab"><a href="emotes.php">Emotes</a></li>
                 </ul>
                 
                 <div class="nav-actions">
@@ -466,12 +484,48 @@ try {
                 </div>
 
                 <!-- Sort options -->
+                <script>
+                    document.addEventListener("DOMContentLoaded", function() {
+                        const postTextbox = document.querySelector(".post-textbox");
+                        const postTools = document.querySelectorAll(".post-tool");
+                        
+                        if (postTextbox) {
+                            postTextbox.addEventListener("click", function() {
+                                window.location.href = "create_post.php";
+                            });
+                        }
+                        
+                        postTools.forEach(tool => {
+                            tool.addEventListener("click", function(e) {
+                                e.preventDefault();
+                                window.location.href = "create_post.php";
+                            });
+                        });
+                        
+                        // Sort functionality
+                        const sortSelect = document.querySelector(".sort-select");
+                        if (sortSelect) {
+                            sortSelect.addEventListener("change", function() {
+                                const sortValue = this.value;
+                                window.location.href = `index.php?sort=${sortValue.toLowerCase().replace(" ", "_")}`;
+                            });
+                        }
+                    });
+                </script>
                 <div class="sort-options">
                     <span>Sort by</span>
                     <select class="sort-select">
-                        <option>New Posts</option>
-                        <option>Top Posts</option>
-                        <option>Hot Posts</option>
+                        <?php
+                            $sortOptions = [
+                                "new_posts" => "New Posts",
+                                "top_posts" => "Top Posts",
+                                "hot_posts" => "Hot Posts"
+                            ];
+                            
+                            foreach ($sortOptions as $value => $label): 
+                        ?>
+                            <option <?php echo $sort === $value ? "selected" : ""; ?>><?php echo $label; ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
 
@@ -573,6 +627,7 @@ try {
                     </div>
                     <div class="button-row">
                         <a href="upload.php" class="sidebar-button upload-button">UPLOAD VIDEO</a>
+                        <a href="emotes.php" class="sidebar-button">EMOTES</a>
                     </div>
                 </div>
                 
@@ -637,7 +692,7 @@ try {
         </div>
         
         <footer>
-            <p>© <?php echo date('Y'); ?> IP2∞ Network</p>
+            <p>© <?php echo date('Y'); ?> IP2∞Social.network</p>
         </footer>
     </div>
 </body>

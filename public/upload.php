@@ -389,7 +389,7 @@ function formatFileSize($bytes) {
         <!-- Subreddit-style header -->
         <header class="subreddit-header">
             <div class="subreddit-title">
-                <h1>IP2∞ (IP2Infinity.network)</h1>
+                <h1>IP2∞Social.network</h1>
             </div>
             
             <nav class="subreddit-nav">
@@ -500,6 +500,7 @@ function formatFileSize($bytes) {
                     </div>
                     <div class="button-row">
                         <a href="upload.php" class="sidebar-button upload-button active">UPLOAD VIDEO</a>
+                        <a href="emotes.php" class="sidebar-button">EMOTES</a>
                     </div>
                 </div>
                 
@@ -529,7 +530,7 @@ function formatFileSize($bytes) {
         </div>
         
         <footer>
-            <p>© <?php echo date('Y'); ?> IP2∞ Network</p>
+            <p>© <?php echo date('Y'); ?> IP2∞Social.network</p>
         </footer>
     </div>
 
