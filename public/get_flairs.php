@@ -1,12 +1,11 @@
 <?php
 header('Content-Type: application/json');
 
-// Database connection
-$dbFile = __DIR__ . '/../storage/sqlite/forum.sqlite';
+// Include database connection
+require_once(__DIR__ . '/includes/database.php');
 
 try {
-    $db = new PDO('sqlite:' . $dbFile);
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $db = getDatabase();
     
     // Check if tags table exists
     $stmt = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='tags'");

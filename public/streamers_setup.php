@@ -1,17 +1,10 @@
 <?php
 // One-time script to set up streamers data
-$dbFile = __DIR__ . '/../storage/sqlite/forum.sqlite';
-$dbDirectory = dirname($dbFile);
-
-// Make sure SQLite directory exists
-if (!is_dir($dbDirectory)) {
-    mkdir($dbDirectory, 0777, true);
-}
+require_once(__DIR__ . '/includes/database.php');
 
 // Connect to SQLite database
 try {
-    $db = new PDO('sqlite:' . $dbFile);
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $db = getDatabase();
     
     // Create streamers table
     $db->exec("

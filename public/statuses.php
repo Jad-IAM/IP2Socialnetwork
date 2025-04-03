@@ -1,6 +1,7 @@
 <?php
 // Include necessary files
 require_once(__DIR__ . "/includes/functions.php");
+require_once(__DIR__ . "/includes/database.php");
 require_once(__DIR__ . "/includes/status_updates.php");
 
 // Simple session management
@@ -8,8 +9,7 @@ session_start();
 
 // Get status updates for the past week
 try {
-    $db = new PDO('sqlite:' . $dbFile);
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $db = getDatabase();
     
     // Get statuses from the past week, ordered by newest first
     $stmt = $db->query("

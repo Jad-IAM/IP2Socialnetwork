@@ -13,10 +13,10 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "PHP Server"
+args = "PHPServer"
 
 [[workflows.workflow]]
-name = "PHP Server"
+name = "PHPServer"
 author = "agent"
 
 [workflows.workflow.metadata]
@@ -27,7 +27,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "php -S 0.0.0.0:5000 -t public -d display_errors=1 -d error_reporting=E_ALL -d log_errors=1"
+args = "cd public && php -S 0.0.0.0:5000"
 waitForPort = 5000
 
 [deployment]
