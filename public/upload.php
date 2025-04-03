@@ -8,6 +8,12 @@ if (!is_dir($dbDirectory)) {
     mkdir($dbDirectory, 0777, true);
 }
 
+// Create uploads directory if it doesn't exist
+$uploadsDir = __DIR__ . '/uploads/videos';
+if (!is_dir($uploadsDir)) {
+    mkdir($uploadsDir, 0777, true);
+}
+
 // Connect to SQLite database
 try {
     $db = new PDO('sqlite:' . $dbFile);
@@ -18,53 +24,118 @@ try {
     
     $uploadSuccess = false;
     $uploadError = '';
+    $uploadedFiles = [];
     
     // Handle video upload
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'upload_video') {
-        if (!isset($_SESSION['user_id'])) {
-            header('Location: index.php');
-            exit;
-        }
-        
         $title = $_POST['title'] ?? '';
         $description = $_POST['description'] ?? '';
         
-        // This is a simplified version - in a real implementation we would:
-        // 1. Validate and save the uploaded file
-        // 2. Process the video (compression, format validation)
-        // 3. Generate a unique URL for embedding
+        // Check if user is logged in
+        $userId = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
         
-        if (!empty($title) && !empty($description)) {
-            // For now, just generate a mock video URL
-            $videoUrl = 'https://example.com/videos/' . time() . '-' . rand(1000, 9999) . '.mp4';
+        // Handle files
+        if (isset($_FILES['files']) && !empty($_FILES['files']['name'][0])) {
+            // First check if the videos table exists, if not create it
+            $db->exec("
+                CREATE TABLE IF NOT EXISTS videos (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    description TEXT,
+                    filename TEXT NOT NULL,
+                    original_filename TEXT NOT NULL,
+                    file_size INTEGER NOT NULL,
+                    file_type TEXT NOT NULL,
+                    url TEXT NOT NULL,
+                    user_id INTEGER,
+                    views INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                );
+            ");
             
-            // Save video info to database
-            $stmt = $db->prepare("INSERT INTO videos (title, description, url, user_id, created_at) 
-                                VALUES (?, ?, ?, ?, datetime('now'))");
+            $filesCount = count($_FILES['files']['name']);
+            $maxFileSize = 100 * 1024 * 1024; // 100MB
+            $allowedTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-matroska', 'video/x-flv'];
             
-            try {
-                // First check if the videos table exists, if not create it
-                $db->exec("
-                    CREATE TABLE IF NOT EXISTS videos (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        title TEXT NOT NULL,
-                        description TEXT NOT NULL,
-                        url TEXT NOT NULL,
-                        user_id INTEGER,
-                        views INTEGER DEFAULT 0,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (user_id) REFERENCES users(id)
-                    );
-                ");
+            for ($i = 0; $i < $filesCount; $i++) {
+                // Check for upload errors
+                if ($_FILES['files']['error'][$i] !== UPLOAD_ERR_OK) {
+                    $errorMessages = [
+                        UPLOAD_ERR_INI_SIZE => 'The uploaded file exceeds the upload_max_filesize directive in php.ini',
+                        UPLOAD_ERR_FORM_SIZE => 'The uploaded file exceeds the MAX_FILE_SIZE directive in the HTML form',
+                        UPLOAD_ERR_PARTIAL => 'The uploaded file was only partially uploaded',
+                        UPLOAD_ERR_NO_FILE => 'No file was uploaded',
+                        UPLOAD_ERR_NO_TMP_DIR => 'Missing a temporary folder',
+                        UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
+                        UPLOAD_ERR_EXTENSION => 'A PHP extension stopped the file upload'
+                    ];
+                    $uploadError = 'Upload error: ' . ($errorMessages[$_FILES['files']['error'][$i]] ?? 'Unknown error');
+                    continue;
+                }
                 
-                $stmt->execute([$title, $description, $videoUrl, $_SESSION['user_id']]);
-                $uploadSuccess = true;
-                $embedCode = '<iframe src="' . htmlspecialchars($videoUrl) . '" width="640" height="360" frameborder="0" allowfullscreen></iframe>';
-            } catch (Exception $e) {
-                $uploadError = 'Database error: ' . $e->getMessage();
+                // Check file size
+                if ($_FILES['files']['size'][$i] > $maxFileSize) {
+                    $uploadError = 'File is too large (max 100MB)';
+                    continue;
+                }
+                
+                // Check file type
+                $finfo = new finfo(FILEINFO_MIME_TYPE);
+                $fileType = $finfo->file($_FILES['files']['tmp_name'][$i]);
+                
+                if (!in_array($fileType, $allowedTypes)) {
+                    $uploadError = 'Invalid file type. Allowed types: mp4, webm, ogg, mov, mkv, flv';
+                    continue;
+                }
+                
+                // Generate unique filename
+                $originalFilename = $_FILES['files']['name'][$i];
+                $extension = pathinfo($originalFilename, PATHINFO_EXTENSION);
+                $newFilename = uniqid('video_') . '_' . time() . '.' . $extension;
+                $targetPath = $uploadsDir . '/' . $newFilename;
+                
+                // Move uploaded file
+                if (move_uploaded_file($_FILES['files']['tmp_name'][$i], $targetPath)) {
+                    // Generate URL
+                    $fileUrl = 'uploads/videos/' . $newFilename;
+                    
+                    // Store in database
+                    $stmt = $db->prepare("
+                        INSERT INTO videos (title, description, filename, original_filename, file_size, file_type, url, user_id) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ");
+                    
+                    $fileTitle = !empty($title) ? $title : pathinfo($originalFilename, PATHINFO_FILENAME);
+                    $stmt->execute([
+                        $fileTitle,
+                        $description,
+                        $newFilename,
+                        $originalFilename,
+                        $_FILES['files']['size'][$i],
+                        $fileType,
+                        $fileUrl,
+                        $userId
+                    ]);
+                    
+                    $videoId = $db->lastInsertId();
+                    
+                    // Add to uploaded files array
+                    $uploadedFiles[] = [
+                        'id' => $videoId,
+                        'name' => $originalFilename,
+                        'size' => $_FILES['files']['size'][$i],
+                        'url' => $fileUrl,
+                        'embed_code' => '<video width="640" height="360" controls><source src="' . $fileUrl . '" type="' . $fileType . '"></video>'
+                    ];
+                    
+                    $uploadSuccess = true;
+                } else {
+                    $uploadError = 'Failed to move uploaded file';
+                }
             }
         } else {
-            $uploadError = 'Please fill in all required fields';
+            $uploadError = 'No files were uploaded';
         }
     }
     
@@ -72,12 +143,17 @@ try {
     die('Database connection failed: ' . $e->getMessage());
 }
 
-// Get username by ID
-function getUsername($db, $user_id) {
-    $stmt = $db->prepare("SELECT username FROM users WHERE id = ?");
-    $stmt->execute([$user_id]);
-    $result = $stmt->fetch(PDO::FETCH_ASSOC);
-    return $result ? $result['username'] : 'Unknown';
+// Format file size
+function formatFileSize($bytes) {
+    if ($bytes >= 1073741824) {
+        return number_format($bytes / 1073741824, 2) . ' GB';
+    } elseif ($bytes >= 1048576) {
+        return number_format($bytes / 1048576, 2) . ' MB';
+    } elseif ($bytes >= 1024) {
+        return number_format($bytes / 1024, 2) . ' KB';
+    } else {
+        return $bytes . ' bytes';
+    }
 }
 ?>
 
@@ -90,12 +166,62 @@ function getUsername($db, $user_id) {
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <style>
-        .upload-container {
+        .pomf-container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
             background-color: var(--content-bg);
             border-radius: 4px;
-            padding: 20px;
-            margin-bottom: 20px;
             border: 1px solid var(--border-color);
+        }
+        
+        .pomf-title {
+            text-align: center;
+            color: var(--accent-secondary);
+            margin-bottom: 25px;
+            font-size: 28px;
+        }
+        
+        .pomf-description {
+            text-align: center;
+            margin-bottom: 25px;
+            color: var(--text-secondary);
+        }
+        
+        .pomf-upload-zone {
+            background-color: var(--background-color);
+            border: 2px dashed var(--accent-secondary);
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            transition: background-color 0.3s ease;
+        }
+        
+        .pomf-upload-zone:hover {
+            background-color: rgba(138, 43, 226, 0.1);
+        }
+        
+        .pomf-icon {
+            font-size: 48px;
+            color: var(--accent-secondary);
+            margin-bottom: 15px;
+        }
+        
+        .pomf-text {
+            color: var(--text-primary);
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        
+        .pomf-subtext {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        
+        .pomf-form {
+            margin-top: 20px;
         }
         
         .form-group {
@@ -131,6 +257,7 @@ function getUsername($db, $user_id) {
             cursor: pointer;
             font-weight: bold;
             border-radius: 4px;
+            width: 100%;
         }
         
         .submit-button:hover {
@@ -155,21 +282,56 @@ function getUsername($db, $user_id) {
             border-radius: 4px;
         }
         
-        .embed-code {
-            background-color: var(--background-color);
-            padding: 15px;
-            border: 1px solid var(--border-color);
+        .file-list {
             margin-top: 15px;
-            font-family: monospace;
-            white-space: pre-wrap;
-            word-break: break-all;
-            border-radius: 4px;
         }
         
-        .page-title {
+        .file-item {
+            background-color: var(--background-color);
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .file-item h3 {
+            margin-top: 0;
+            color: var(--post-title);
+        }
+        
+        .file-meta {
+            margin: 10px 0;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        
+        .file-urls {
+            margin-top: 15px;
+            background-color: #000;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            word-break: break-all;
+        }
+        
+        .file-url {
+            display: block;
+            margin-bottom: 5px;
             color: var(--accent-secondary);
-            margin-bottom: 20px;
-            font-size: 24px;
+        }
+        
+        .file-url strong {
+            color: var(--text-primary);
+            margin-right: 5px;
+        }
+        
+        .pomf-footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 12px;
         }
         
         .back-link {
@@ -178,14 +340,42 @@ function getUsername($db, $user_id) {
             color: var(--accent-secondary);
         }
         
-        .back-link:hover {
-            text-decoration: underline;
+        #file-input {
+            display: none;
         }
         
-        .help-text {
-            color: var(--text-secondary);
+        .file-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+        
+        .file-action-button {
+            background-color: var(--background-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
             font-size: 14px;
-            margin-top: 5px;
+        }
+        
+        .file-action-button:hover {
+            background-color: var(--hover-bg);
+        }
+        
+        .file-action-primary {
+            background-color: var(--accent-secondary);
+            color: white;
+        }
+        
+        .thumbnail-preview {
+            width: 100%;
+            max-height: 200px;
+            object-fit: contain;
+            margin-top: 10px;
+            border-radius: 4px;
+            background-color: #000;
         }
     </style>
 </head>
@@ -215,13 +405,13 @@ function getUsername($db, $user_id) {
                         <div class="more-options">
                             <button class="more-button"><i class="fas fa-ellipsis-h"></i></button>
                         </div>
-                        <a href="#" class="member-button">Member</a>
+                        <a href="profile.php" class="member-button"><?php echo htmlspecialchars($_SESSION['username']); ?></a>
                     <?php else: ?>
                         <a href="#" class="favorite-button"><i class="far fa-star"></i></a>
                         <div class="more-options">
                             <button class="more-button"><i class="fas fa-ellipsis-h"></i></button>
                         </div>
-                        <a href="index.php?page=login" class="member-button">Login</a>
+                        <a href="login.php" class="member-button">Login</a>
                     <?php endif; ?>
                 </div>
             </nav>
@@ -231,17 +421,9 @@ function getUsername($db, $user_id) {
             <main class="main-content">
                 <a href="index.php" class="back-link"><i class="fas fa-arrow-left"></i> Back to Home</a>
                 
-                <div class="upload-container">
-                    <h1 class="page-title">Upload Video</h1>
-                    
-                    <?php if ($uploadSuccess): ?>
-                        <div class="upload-success">
-                            <h3>Upload Successful!</h3>
-                            <p>Your video has been uploaded successfully. Use the embed code below to share your video.</p>
-                            <div class="embed-code"><?php echo htmlspecialchars($embedCode); ?></div>
-                            <p>Or you can create a post with this video: <a href="index.php?page=create_post&video_url=<?php echo urlencode($videoUrl); ?>" class="submit-button" style="display: inline-block; margin-top: 10px;">Create Post</a></p>
-                        </div>
-                    <?php endif; ?>
+                <div class="pomf-container">
+                    <h1 class="pomf-title">IP2∞ Video Upload</h1>
+                    <p class="pomf-description">Upload videos and share them with the IP2 community</p>
                     
                     <?php if ($uploadError): ?>
                         <div class="upload-error">
@@ -250,39 +432,62 @@ function getUsername($db, $user_id) {
                         </div>
                     <?php endif; ?>
                     
-                    <?php if (!$uploadSuccess): ?>
-                        <form method="POST" enctype="multipart/form-data">
+                    <?php if ($uploadSuccess): ?>
+                        <div class="upload-success">
+                            <h3>Upload Successful!</h3>
+                            <p>Your files have been uploaded successfully.</p>
+                        </div>
+                        
+                        <div class="file-list">
+                            <?php foreach ($uploadedFiles as $file): ?>
+                                <div class="file-item">
+                                    <h3><?php echo htmlspecialchars($file['name']); ?></h3>
+                                    <div class="file-meta">
+                                        <span><i class="fas fa-file-video"></i> <?php echo formatFileSize($file['size']); ?></span>
+                                    </div>
+                                    
+                                    <div class="file-urls">
+                                        <div class="file-url"><strong>URL:</strong> <a href="<?php echo $file['url']; ?>" target="_blank"><?php echo htmlspecialchars($file['url']); ?></a></div>
+                                        <div class="file-url"><strong>Embed:</strong> <?php echo htmlspecialchars($file['embed_code']); ?></div>
+                                    </div>
+                                    
+                                    <div class="file-actions">
+                                        <a href="<?php echo $file['url']; ?>" download class="file-action-button"><i class="fas fa-download"></i> Download</a>
+                                        <a href="index.php?page=create_post&video_url=<?php echo urlencode($file['url']); ?>" class="file-action-button file-action-primary"><i class="fas fa-share"></i> Create Post</a>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php else: ?>
+                        <form method="POST" enctype="multipart/form-data" class="pomf-form">
                             <input type="hidden" name="action" value="upload_video">
                             
-                            <div class="form-group">
-                                <label for="title">Video Title*</label>
-                                <input type="text" id="title" name="title" required>
+                            <div class="pomf-upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+                                <div class="pomf-icon">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                </div>
+                                <div class="pomf-text">Drag & drop videos here or click to browse</div>
+                                <div class="pomf-subtext">Max file size: 100MB. Supported formats: MP4, WebM, MOV, MKV, FLV</div>
+                                <input type="file" id="file-input" name="files[]" accept="video/*" multiple>
                             </div>
                             
                             <div class="form-group">
-                                <label for="description">Description*</label>
-                                <textarea id="description" name="description" required></textarea>
+                                <label for="title">Title (Optional)</label>
+                                <input type="text" id="title" name="title" placeholder="Give your upload a title">
                             </div>
                             
                             <div class="form-group">
-                                <label for="video_file">Video File*</label>
-                                <input type="file" id="video_file" name="video_file" accept="video/*" required>
-                                <p class="help-text">Max file size: 100MB. Supported formats: MP4, WebM, MOV</p>
+                                <label for="description">Description (Optional)</label>
+                                <textarea id="description" name="description" placeholder="Add a description"></textarea>
                             </div>
                             
-                            <div class="form-group">
-                                <label for="thumbnail">Thumbnail (Optional)</label>
-                                <input type="file" id="thumbnail" name="thumbnail" accept="image/*">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="tags">Tags (Comma separated)</label>
-                                <input type="text" id="tags" name="tags" placeholder="e.g. clip, quality, breaking news">
-                            </div>
-                            
-                            <button type="submit" class="submit-button">Upload Video</button>
+                            <button type="submit" class="submit-button">Upload Files</button>
                         </form>
                     <?php endif; ?>
+                    
+                    <div class="pomf-footer">
+                        <p>Files uploaded to IP2∞ are subject to our <a href="#">Terms of Service</a>. Do not upload illegal content.</p>
+                    </div>
                 </div>
             </main>
 
@@ -290,38 +495,35 @@ function getUsername($db, $user_id) {
                 <!-- Sidebar buttons -->
                 <div class="sidebar-buttons">
                     <div class="button-row">
-                        <a href="#" class="sidebar-button live-button"><span class="live-icon">⚫</span> LIVE</a>
+                        <a href="live.php" class="sidebar-button live-button"><span class="live-icon">⚫</span> LIVE</a>
                         <a href="#" class="sidebar-button leaderboard-button">LEADERBOARD</a>
                     </div>
                     <div class="button-row">
-                        <a href="upload.php" class="sidebar-button upload-button">UPLOAD VIDEO</a>
+                        <a href="upload.php" class="sidebar-button upload-button active">UPLOAD VIDEO</a>
                     </div>
                 </div>
                 
                 <!-- About Box -->
                 <div class="about-box">
-                    <h2>About</h2>
-                    <div class="about-header">
-                        <h3>Internet-Platform 2 Infinity (IP2∞)</h3>
-                        <p class="about-subtitle">Formerly Ice Poseidon 2</p>
-                    </div>
-                    <hr>
+                    <h2>File Sharing Rules</h2>
                     
-                    <h4 class="section-title">Welcoming Newcomers</h4>
-                    <p class="about-text">This is a fresh start—new platform, new people, better community. Our community originally formed around the controversial live streamer Ice Poseidon, but evolved into a decentralized network of IRL streamers, pranksters, and content creators.</p>
-                    
-                    <h4 class="section-title">Our Goals</h4>
-                    <ul class="goals-list">
-                        <li><span class="checkmark">✅</span> Bring back the witty, high-effort trolling that made this community legendary</li>
-                        <li><span class="checkmark">✅</span> Create a space for real discussions, not just mindless spam</li>
-                        <li><span class="checkmark">✅</span> Content is King. Community-voted streamer lists and content curation</li>
+                    <h4 class="section-title">Allowed Content</h4>
+                    <ul class="rules-list">
+                        <li>Stream clips/highlights</li>
+                        <li>Original content</li>
+                        <li>Memes and edits</li>
                     </ul>
                     
-                    <h4 class="section-title">Moderators</h4>
-                    <ul class="mod-list">
-                        <li><strong>404JesterNotFound</strong></li>
-                        <li><strong>RubyOnRails</strong></li>
+                    <h4 class="section-title">Prohibited Content</h4>
+                    <ul class="rules-list">
+                        <li>Illegal material</li>
+                        <li>DMCA-protected full movies/shows</li>
+                        <li>Malware/viruses</li>
                     </ul>
+                    
+                    <h4 class="section-title">File Limits</h4>
+                    <p>Maximum file size: 100MB per file</p>
+                    <p>Allowed types: MP4, WebM, MOV, MKV, FLV</p>
                 </div>
             </aside>
         </div>
@@ -330,5 +532,84 @@ function getUsername($db, $user_id) {
             <p>© <?php echo date('Y'); ?> IP2∞ Network</p>
         </footer>
     </div>
+
+    <script>
+        // Drag and drop functionality
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+        
+        function highlight() {
+            dropZone.style.backgroundColor = 'rgba(138, 43, 226, 0.1)';
+            dropZone.style.borderColor = 'var(--accent-primary)';
+        }
+        
+        function unhighlight() {
+            dropZone.style.backgroundColor = 'var(--background-color)';
+            dropZone.style.borderColor = 'var(--accent-secondary)';
+        }
+        
+        dropZone.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            fileInput.files = files;
+            
+            // Show selected files
+            updateFileInfo();
+        }
+        
+        fileInput.addEventListener('change', updateFileInfo);
+        
+        function updateFileInfo() {
+            const files = fileInput.files;
+            let fileInfo = '';
+            
+            if (files.length > 0) {
+                fileInfo = `<div class="pomf-text">${files.length} file(s) selected</div>`;
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    fileInfo += `<div class="pomf-subtext">${file.name} (${formatSize(file.size)})</div>`;
+                }
+                
+                dropZone.innerHTML = `
+                    <div class="pomf-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    ${fileInfo}
+                    <div class="pomf-subtext">Click to change selection</div>
+                `;
+            }
+        }
+        
+        function formatSize(bytes) {
+            if (bytes >= 1073741824) {
+                return (bytes / 1073741824).toFixed(2) + ' GB';
+            } else if (bytes >= 1048576) {
+                return (bytes / 1048576).toFixed(2) + ' MB';
+            } else if (bytes >= 1024) {
+                return (bytes / 1024).toFixed(2) + ' KB';
+            } else {
+                return bytes + ' bytes';
+            }
+        }
+    </script>
 </body>
 </html>
