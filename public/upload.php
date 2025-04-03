@@ -495,12 +495,11 @@ function formatFileSize($bytes) {
                 <!-- Sidebar buttons -->
                 <div class="sidebar-buttons">
                     <div class="button-row">
-                        <a href="live.php" class="sidebar-button live-button"><span class="live-icon">⚫</span> LIVE</a>
+                        <a href="live.php" class="sidebar-button live-button"><span class="live-icon"></span>LIVE</a>
                         <a href="#" class="sidebar-button leaderboard-button">LEADERBOARD</a>
                     </div>
                     <div class="button-row">
                         <a href="upload.php" class="sidebar-button upload-button active">UPLOAD VIDEO</a>
-                        <a href="emotes.php" class="sidebar-button">EMOTES</a>
                     </div>
                 </div>
                 
@@ -523,6 +522,9 @@ function formatFileSize($bytes) {
                     </ul>
                     
                     <h4 class="section-title">File Limits</h4>
+                    <h4 class="section-title">Community Guidelines</h4>
+                    <p>Content uploaded here is strictly for community use only. Do not share or hotlink these files on external sites.</p>
+                    <p>Content may be served through our Backblaze B2 CDN for performance reasons.</p>
                     <p>Maximum file size: 100MB per file</p>
                     <p>Allowed types: MP4, WebM, MOV, MKV, FLV</p>
                 </div>
